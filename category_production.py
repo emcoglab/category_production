@@ -17,7 +17,7 @@ caiwingfield.net
 """
 from pandas import DataFrame
 
-from .category_production_preferences import Preferences
+from category_production_preferences import Preferences
 
 
 class CategoryProduction(object):

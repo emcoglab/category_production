@@ -16,7 +16,7 @@ caiwingfield.net
 """
 import unittest
 
-from category_production.category_production import CategoryProduction
+from category_production import CategoryProduction
 
 
 class TestVocabulary(unittest.TestCase):
