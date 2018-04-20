@@ -65,34 +65,30 @@ class CategoryProduction(object):
             subset=[CategoryProduction.ColNames.Category, CategoryProduction.ColNames.Response],
             inplace=True)
 
+        # Hide those with production frequency 1
+        self.data = self.data[self.data[CategoryProduction.ColNames.ProductionFrequency] != 1]
+
         # Trim whitespace and convert all words to lower case
         self.data[CategoryProduction.ColNames.Category] = self.data[CategoryProduction.ColNames.Category].str.strip()
         self.data[CategoryProduction.ColNames.Category] = self.data[CategoryProduction.ColNames.Category].str.lower()
         self.data[CategoryProduction.ColNames.Response] = self.data[CategoryProduction.ColNames.Response].str.strip()
         self.data[CategoryProduction.ColNames.Response] = self.data[CategoryProduction.ColNames.Response].str.lower()
 
+        # Apply specific substitutions.
+        self.data.replace(Preferences.specific_substitutions, inplace=True)
+
         # Build vocab lists
 
-        self.single_word_vocabulary = set()
-        self.multi_word_vocabulary = set()
+        self.categories = sorted([category for category in self.data[CategoryProduction.ColNames.Category]])
+        self.responses = sorted([response for response in self.data[CategoryProduction.ColNames.Response]])
 
-        for row_i, data_row in self.data.iterrows():
-            category = data_row[CategoryProduction.ColNames.Category]
-            response = data_row[CategoryProduction.ColNames.Response]
-
-            self.multi_word_vocabulary.add(category)
-            self.multi_word_vocabulary.add(response)
-
-            # Use the same tokenisation strategy as the corpus, but ignore some function words
-            category_words = [word for word in word_tokenise(category) if word not in CategoryProduction._ignored_words]
-            response_words = [word for word in word_tokenise(response) if word not in CategoryProduction._ignored_words]
-
-            self.single_word_vocabulary |= set(category_words)
-            self.single_word_vocabulary |= set(response_words)
-
-        # Convert to alphabetical lists
-        self.single_word_vocabulary = sorted(self.single_word_vocabulary)
+        self.multi_word_vocabulary = set(self.categories) | set(self.responses)
+        self.single_word_vocabulary = set(word
+                                          for vocab_item in self.multi_word_vocabulary
+                                          for word in word_tokenise(vocab_item)
+                                          if word not in CategoryProduction._ignored_words)
         self.multi_word_vocabulary = sorted(self.multi_word_vocabulary)
+        self.single_word_vocabulary = sorted(self.single_word_vocabulary)
 
     class ColNames(object):
         """Column names used in the data files."""

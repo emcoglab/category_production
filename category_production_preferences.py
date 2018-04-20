@@ -26,3 +26,17 @@ class Preferences(object):
 
     # Specific dirs
     linguistic_wordlist_csv_path = path.join(_experiment_dir, "Data & Analysis/1.4_ALL Data & variables.csv")
+
+    # Substitutions
+
+    specific_substitutions = {
+        "bobsledging": "bobsledding",
+        "dodgeball":   "dodge-ball",
+        "fifty-seven": "57",
+        "gokart":      "go-kart",
+        "jetskiing":   "jet-skiing",
+        "micrometre":  "micrometer",
+        "slalem":      "slalom",
+        "stepparents": "step-parents",
+        "yogurt":      "yoghurt",
+    }
