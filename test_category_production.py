@@ -2122,7 +2122,6 @@ class TestVocabulary(unittest.TestCase):
             "water",
             "water bird",
             "water polo",
-            "water skiing",
             "water sport",
             "watermelon",
             "waterproofs",
