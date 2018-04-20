@@ -22,7 +22,7 @@ from category_production import CategoryProduction
 class TestVocabulary(unittest.TestCase):
 
     def test_multi_word_vocabulary(self):
-        cp = CategoryProduction(tokenize=None)
+        cp = CategoryProduction(word_tokenise=None)
         self.assertListEqual(
             cp.multi_word_vocabulary,
             ["1pm", "2pm", "3pm", "4pm", "57", "abrupt", "absinthe", "abstract", "academic", "academic subject",
@@ -276,7 +276,7 @@ class TestVocabulary(unittest.TestCase):
         )
 
     def test_single_word_vocabulary(self):
-        cp = CategoryProduction(tokenize=None)
+        cp = CategoryProduction(word_tokenise=None)
         self.assertListEqual(
             cp.single_word_vocabulary,
             ["1pm", "2pm", "3pm", "4pm", "57", "abrupt", "absinthe", "abstract", "abuse", "academic", "accounting",
