@@ -77,18 +77,27 @@ class CategoryProduction(object):
         # Apply specific substitutions.
         self.data.replace(Preferences.specific_substitutions, inplace=True)
 
+        # Build lists
+
+        self.category_labels = sorted({category for category in self.data[CategoryProduction.ColNames.Category]})
+        self.response_labels = sorted({response for response in self.data[CategoryProduction.ColNames.Response]})
+
         # Build vocab lists
-
-        self.categories = sorted([category for category in self.data[CategoryProduction.ColNames.Category]])
-        self.responses = sorted([response for response in self.data[CategoryProduction.ColNames.Response]])
-
-        self.multi_word_vocabulary = set(self.categories) | set(self.responses)
-        self.single_word_vocabulary = set(word
-                                          for vocab_item in self.multi_word_vocabulary
+        self.vocabulary_multi_word = set(self.category_labels) | set(self.response_labels)
+        self.vocabulary_single_word = set(word
+                                          for vocab_item in self.vocabulary_multi_word
                                           for word in word_tokenise(vocab_item)
                                           if word not in CategoryProduction._ignored_words)
-        self.multi_word_vocabulary = sorted(self.multi_word_vocabulary)
-        self.single_word_vocabulary = sorted(self.single_word_vocabulary)
+        self.vocabulary_multi_word = sorted(self.vocabulary_multi_word)
+        self.vocabulary_single_word = sorted(self.vocabulary_single_word)
+
+    def responses_for_category(self, category: str, single_word_only: bool = False) -> List[str]:
+        """Responses for a provided category"""
+        if category not in self.category_labels:
+            raise CategoryNotFoundError(category)
+        filtered_data = self.data[self.data[CategoryProduction.ColNames.Category] == category]
+        # TODO: Order by what???
+        return filtered_data[CategoryProduction.ColNames.Response]
 
     class ColNames(object):
         """Column names used in the data files."""
@@ -104,6 +113,18 @@ class CategoryProduction(object):
         MeanRank             = "MeanRank"
         # First-rank frequency
         FirstRankFrequency   = "FRF"
+
+
+class TermNotFoundError(Exception):
+    pass
+
+
+class CategoryNotFoundError(TermNotFoundError):
+    pass
+
+
+class ResponseNotFoundError(TermNotFoundError):
+    pass
 
 
 # For debug
