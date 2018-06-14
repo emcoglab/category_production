@@ -96,8 +96,13 @@ class CategoryProduction(object):
         if category not in self.category_labels:
             raise CategoryNotFoundError(category)
         filtered_data = self.data[self.data[CategoryProduction.ColNames.Category] == category]
+        filtered_data = filtered_data[CategoryProduction.ColNames.Response]
+        if single_word_only:
+            filtered_data = [r for r in filtered_data if " " not in r]
+        else:
+            filtered_data = [r for r in filtered_data]
         # TODO: Order by what???
-        return filtered_data[CategoryProduction.ColNames.Response]
+        return filtered_data
 
     class ColNames(object):
         """Column names used in the data files."""
