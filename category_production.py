@@ -83,13 +83,15 @@ class CategoryProduction(object):
         self.response_labels = sorted({response for response in self.data[CategoryProduction.ColNames.Response]})
 
         # Build vocab lists
-        self.vocabulary_multi_word = set(self.category_labels) | set(self.response_labels)
-        self.vocabulary_single_word = set(word
-                                          for vocab_item in self.vocabulary_multi_word
-                                          for word in word_tokenise(vocab_item)
-                                          if word not in CategoryProduction._ignored_words)
-        self.vocabulary_multi_word = sorted(self.vocabulary_multi_word)
-        self.vocabulary_single_word = sorted(self.vocabulary_single_word)
+
+        # All multi-word tokens in the dataset
+        self.vocabulary_multi_word  = sorted(set(self.category_labels)
+                                             | set(self.response_labels))
+        # All single-word tokens in the dataset
+        self.vocabulary_single_word = sorted(set(word
+                                                 for vocab_item in self.vocabulary_multi_word
+                                                 for word in word_tokenise(vocab_item)
+                                                 if word not in CategoryProduction._ignored_words))
 
     def responses_for_category(self, category: str, single_word_only: bool = False) -> List[str]:
         """Responses for a provided category"""
