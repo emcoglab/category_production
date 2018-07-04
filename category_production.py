@@ -93,17 +93,35 @@ class CategoryProduction(object):
                                                  for word in word_tokenise(vocab_item)
                                                  if word not in CategoryProduction._ignored_words))
 
-    def responses_for_category(self, category: str, single_word_only: bool = False) -> List[str]:
-        """Responses for a provided category"""
+    def responses_for_category(self,
+                               category: str,
+                               single_word_only: bool = False,
+                               sort_by: 'CategoryProduction.ColNames'=None) -> List[str]:
+        """
+        Responses for a provided category.
+        :param category:
+        :param single_word_only:
+        :param sort_by: CategoryProduction.ColNames
+            Default: CategoryProduction.ColNames.MeanRank
+        :return:
+        """
+        # Set default values
+        if sort_by is None:
+            sort_by = CategoryProduction.ColNames.MeanRank
+
+        # Check validity
         if category not in self.category_labels:
             raise CategoryNotFoundError(category)
+
         filtered_data = self.data[self.data[CategoryProduction.ColNames.Category] == category]
+        filtered_data.sort_values(by=sort_by, ascending=True, inplace=True)
         filtered_data = filtered_data[CategoryProduction.ColNames.Response]
+
         if single_word_only:
             filtered_data = [r for r in filtered_data if " " not in r]
         else:
             filtered_data = [r for r in filtered_data]
-        # TODO: Order by what???
+
         return filtered_data
 
     class ColNames(object):
