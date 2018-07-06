@@ -114,7 +114,7 @@ class CategoryProduction(object):
             raise CategoryNotFoundError(category)
 
         filtered_data = self.data[self.data[CategoryProduction.ColNames.Category] == category]
-        filtered_data.sort_values(by=sort_by, ascending=True, inplace=True)
+        filtered_data = filtered_data.sort_values(by=sort_by, ascending=True)
         filtered_data = filtered_data[CategoryProduction.ColNames.Response]
 
         if single_word_only:
