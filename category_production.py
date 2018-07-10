@@ -124,6 +124,22 @@ class CategoryProduction(object):
 
         return filtered_data
 
+    def data_for_category_response_pair(self,
+                                        category: str,
+                                        response: str,
+                                        col_name: 'CategoryProduction.ColNames'):
+        """Data for a category–response pair."""
+        if category not in self.category_labels:
+            raise CategoryNotFoundError(category)
+        if response not in self.responses_for_category(category):
+            raise ResponseNotFoundError(response)
+
+        filtered_data = self.data[
+            (self.data[CategoryProduction.ColNames.Category] == category)
+            & (self.data[CategoryProduction.ColNames.Response] == response)]
+
+        return filtered_data[col_name]
+
     class ColNames(object):
         """Column names used in the data files."""
         # The category
