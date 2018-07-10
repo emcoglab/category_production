@@ -141,6 +141,7 @@ class CategoryProduction(object):
             (self.data[CategoryProduction.ColNames.Category] == category)
             & (self.data[CategoryProduction.ColNames.Response] == response)]
 
+        # We should already have dropped duplicated on loading, but just to be safe we check here
         if filtered_data.shape[0] > 1:
             logger.warning(f"Found multiple entries for {category}–{response} pair. Just using the first.")
 
