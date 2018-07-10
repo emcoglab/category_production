@@ -17,10 +17,13 @@ caiwingfield.net
 """
 
 from typing import List
+from logging import getLogger
 
 from pandas import DataFrame
 
 from .category_production_preferences import Preferences
+
+logger = getLogger(__name__)
 
 
 def _split_on_spaces(str_in: str) -> List[str]:
@@ -138,7 +141,10 @@ class CategoryProduction(object):
             (self.data[CategoryProduction.ColNames.Category] == category)
             & (self.data[CategoryProduction.ColNames.Response] == response)]
 
-        return filtered_data[col_name]
+        if filtered_data.shape[0] > 1:
+            logger.warning(f"Found multiple entries for {category}–{response} pair. Just using the first.")
+
+        return filtered_data.iloc[0][col_name]
 
     class ColNames(object):
         """Column names used in the data files."""
