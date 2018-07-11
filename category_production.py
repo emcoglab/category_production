@@ -16,7 +16,7 @@ caiwingfield.net
 ---------------------------
 """
 
-from typing import List
+from typing import List, Set
 from logging import getLogger
 
 from pandas import DataFrame
@@ -62,6 +62,7 @@ class CategoryProduction(object):
         # Load and prepare data
 
         self.data = DataFrame.from_csv(Preferences.linguistic_wordlist_csv_path, index_col=0, header=0)
+        self.rt_data = DataFrame.from_csv(Preferences.linguistic_wordlist_rt_csv_path, index_col=0, header=0)
 
         # Only consider unique category–response pairs
         self.data.drop_duplicates(
@@ -79,6 +80,7 @@ class CategoryProduction(object):
 
         # Apply specific substitutions.
         self.data.replace(Preferences.specific_substitutions, inplace=True)
+        self.rt_data.replace(Preferences.specific_substitutions, inplace=True)
 
         # Build lists
 
@@ -146,6 +148,12 @@ class CategoryProduction(object):
             logger.warning(f"Found multiple entries for {category}–{response} pair. Just using the first.")
 
         return filtered_data.iloc[0][col_name]
+
+    def rts_for_category_response_pair(self,
+                                       category: str,
+                                       response: str) -> Set[float]:
+        filtered_rt_data = self.rt_data[(self.rt_data[CategoryProduction.ColNames.Category] == category) & (self.rt_data[CategoryProduction.ColNames.Response] == response)]
+        return set(filtered_rt_data["RT"])
 
     class ColNames(object):
         """Column names used in the data files."""
