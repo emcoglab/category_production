@@ -72,6 +72,10 @@ class CategoryProduction(object):
         # Hide those with production frequency 1
         self.data = self.data[self.data[CategoryProduction.ColNames.ProductionFrequency] != 1]
 
+        # A nan in the FRF column means the first-rank frequency is zero
+        # Set FRF=NAN rows to FRF=0
+        self.data[CategoryProduction.ColNames.FirstRankFrequency] = self.data[CategoryProduction.ColNames.FirstRankFrequency].fillna(0)
+
         # Trim whitespace and convert all words to lower case
         self.data[CategoryProduction.ColNames.Category] = self.data[CategoryProduction.ColNames.Category].str.strip()
         self.data[CategoryProduction.ColNames.Category] = self.data[CategoryProduction.ColNames.Category].str.lower()
