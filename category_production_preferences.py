@@ -21,8 +21,8 @@ from os import path
 class Preferences(object):
 
     # Root dirs
-    _box_root = "/Users/caiwingfield/Box Sync/LANGBOOT Project/"
-    _experiment_dir = path.join(_box_root, "Experiments/Phase 1 - Categorisation/Experiment 1.4 - Category production/Data & Analysis/")
+    _box_root = "/storage/hpc/57/wingfiel/"
+    _experiment_dir = path.join(_box_root, "experimental_data")
 
     # Specific paths
     main_data_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_May 2019.csv")
