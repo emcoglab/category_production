@@ -19,7 +19,7 @@ caiwingfield.net
 from typing import List, Set
 from logging import getLogger
 
-from pandas import DataFrame
+from pandas import DataFrame, read_csv
 
 from .category_production_preferences import Preferences
 
@@ -61,8 +61,8 @@ class CategoryProduction(object):
 
         # Load and prepare data
 
-        self.data = DataFrame.from_csv(Preferences.linguistic_wordlist_csv_path, index_col=0, header=0)
-        self.rt_data = DataFrame.from_csv(Preferences.linguistic_wordlist_rt_csv_path, index_col=0, header=0)
+        self.data: DataFrame = read_csv(Preferences.linguistic_wordlist_csv_path, index_col=0, header=0)
+        self.rt_data: DataFrame = read_csv(Preferences.linguistic_wordlist_rt_csv_path, index_col=0, header=0)
 
         # Only consider unique category–response pairs
         self.data.drop_duplicates(
