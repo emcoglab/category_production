@@ -155,9 +155,13 @@ class CategoryProduction(object):
 
     def rts_for_category_response_pair(self,
                                        category: str,
-                                       response: str) -> Set[float]:
+                                       response: str,
+                                       use_zrt: bool) -> Set[float]:
         filtered_rt_data = self.rt_data[(self.rt_data[CategoryProduction.ColNames.Category] == category) & (self.rt_data[CategoryProduction.ColNames.Response] == response)]
-        return set(filtered_rt_data["RT"])
+        if use_zrt:
+            return set(filtered_rt_data["zscore_per_pt"])
+        else:
+            return set(filtered_rt_data["RT"])
 
     class ColNames(object):
         """Column names used in the data files."""
