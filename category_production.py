@@ -15,10 +15,11 @@ caiwingfield.net
 2018
 ---------------------------
 """
-
-from typing import List, Set
+from functools import partial
 from logging import getLogger
+from typing import List
 
+from numpy import mean, nan
 from pandas import DataFrame, read_csv
 
 from .category_production_preferences import Preferences
@@ -62,7 +63,7 @@ class CategoryProduction(object):
         # Load and prepare data
 
         self.data: DataFrame = read_csv(Preferences.linguistic_wordlist_csv_path, index_col=0, header=0)
-        self.rt_data: DataFrame = read_csv(Preferences.linguistic_wordlist_rt_csv_path, index_col=0, header=0)
+        rt_data: DataFrame = read_csv(Preferences.linguistic_wordlist_rt_csv_path, index_col=0, header=0)
 
         # Only consider unique category–response pairs
         self.data.drop_duplicates(
@@ -84,7 +85,10 @@ class CategoryProduction(object):
 
         # Apply specific substitutions.
         self.data.replace(Preferences.specific_substitutions, inplace=True)
-        self.rt_data.replace(Preferences.specific_substitutions, inplace=True)
+        rt_data.replace(Preferences.specific_substitutions, inplace=True)
+
+        self.data[CategoryProduction.ColNames.MeanRT]  = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
+        self.data[CategoryProduction.ColNames.MeanZRT] = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)
 
         # Build lists
 
@@ -153,16 +157,6 @@ class CategoryProduction(object):
 
         return filtered_data.iloc[0][col_name]
 
-    def rts_for_category_response_pair(self,
-                                       category: str,
-                                       response: str,
-                                       use_zrt: bool) -> Set[float]:
-        filtered_rt_data = self.rt_data[(self.rt_data[CategoryProduction.ColNames.Category] == category) & (self.rt_data[CategoryProduction.ColNames.Response] == response)]
-        if use_zrt:
-            return set(filtered_rt_data["zscore_per_pt"])
-        else:
-            return set(filtered_rt_data["RT"])
-
     class ColNames(object):
         """Column names used in the data files."""
         # The category
@@ -177,6 +171,10 @@ class CategoryProduction(object):
         MeanRank             = "MeanRank"
         # First-rank frequency
         FirstRankFrequency   = "FRF"
+        # Mean reaction time for first responses
+        MeanRT               = "Mean RT"
+        # Mean standardised reaction time for first responses
+        MeanZRT              = "Mean zRT"
 
 
 class TermNotFoundError(Exception):
@@ -189,6 +187,20 @@ class CategoryNotFoundError(TermNotFoundError):
 
 class ResponseNotFoundError(TermNotFoundError):
     pass
+
+
+def _get_mean_rt(row, rt_data: DataFrame, use_zrt: bool):
+    filtered_rt_data = rt_data[(rt_data[CategoryProduction.ColNames.Category] == row[CategoryProduction.ColNames.Category])
+                               & (rt_data[CategoryProduction.ColNames.Response] == row[CategoryProduction.ColNames.Response])]
+
+    if use_zrt:
+        rts = list(filtered_rt_data["zscore_per_pt"])
+    else:
+        rts = list(filtered_rt_data["RT"])
+    if rts:
+        return mean(rts)
+    else:
+        return nan
 
 
 # For debug
