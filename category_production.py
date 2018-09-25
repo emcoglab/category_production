@@ -95,8 +95,8 @@ class CategoryProduction(object):
         self.data = self.data[self.data[ColNames.ProductionFrequency] != 1]
 
         # A nan in the FRF column means the first-rank frequency is zero
-        # Set FRF=NAN rows to FRF=0
-        self.data[ColNames.FirstRankFrequency] = self.data[ColNames.FirstRankFrequency].fillna(0)
+        # Set FRF=NAN rows to FRF=0 and convert to int
+        self.data[ColNames.FirstRankFrequency] = self.data[ColNames.FirstRankFrequency].fillna(0).astype(int)
 
         # Trim whitespace and convert all words to lower case
         self.data[ColNames.Category] = self.data[ColNames.Category].str.strip()
