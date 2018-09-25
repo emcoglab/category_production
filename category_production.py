@@ -88,6 +88,9 @@ class CategoryProduction(object):
             subset=[ColNames.Category, ColNames.Response],
             inplace=True)
 
+        # Drop columns which disambiguated duplicate entries
+        self.data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
+
         # Hide those with production frequency 1
         self.data = self.data[self.data[ColNames.ProductionFrequency] != 1]
 
