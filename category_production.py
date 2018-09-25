@@ -27,8 +27,24 @@ from .category_production_preferences import Preferences
 logger = getLogger(__name__)
 
 
-def _split_on_spaces(str_in: str) -> List[str]:
-    return str_in.split(" ")
+class ColNames(object):
+    """Column names used in the data files."""
+    # The category
+    Category             = "Category"
+    # The response (linguistic version)
+    Response             = "Response"
+    # The response (sensorimotor version)
+    ResponseSensorimotor = "SM_term"
+    # Production frequency
+    ProductionFrequency  = "ProdFreq"
+    # Mean rank
+    MeanRank             = "MeanRank"
+    # First-rank frequency
+    FirstRankFrequency   = "FRF"
+    # Mean reaction time for first responses
+    MeanRT               = "Mean RT"
+    # Mean standardised reaction time for first responses
+    MeanZRT              = "Mean zRT"
 
 
 class CategoryProduction(object):
@@ -57,8 +73,10 @@ class CategoryProduction(object):
         Default: s ↦ s.split(" ")
         """
 
+        # If no tokeniser given, split on spaces
         if word_tokenise is None:
-            word_tokenise = _split_on_spaces
+            def word_tokenise(x):
+                return x.split(" ")
 
         # Load and prepare data
 
@@ -67,33 +85,33 @@ class CategoryProduction(object):
 
         # Only consider unique category–response pairs
         self.data.drop_duplicates(
-            subset=[CategoryProduction.ColNames.Category, CategoryProduction.ColNames.Response],
+            subset=[ColNames.Category, ColNames.Response],
             inplace=True)
 
         # Hide those with production frequency 1
-        self.data = self.data[self.data[CategoryProduction.ColNames.ProductionFrequency] != 1]
+        self.data = self.data[self.data[ColNames.ProductionFrequency] != 1]
 
         # A nan in the FRF column means the first-rank frequency is zero
         # Set FRF=NAN rows to FRF=0
-        self.data[CategoryProduction.ColNames.FirstRankFrequency] = self.data[CategoryProduction.ColNames.FirstRankFrequency].fillna(0)
+        self.data[ColNames.FirstRankFrequency] = self.data[ColNames.FirstRankFrequency].fillna(0)
 
         # Trim whitespace and convert all words to lower case
-        self.data[CategoryProduction.ColNames.Category] = self.data[CategoryProduction.ColNames.Category].str.strip()
-        self.data[CategoryProduction.ColNames.Category] = self.data[CategoryProduction.ColNames.Category].str.lower()
-        self.data[CategoryProduction.ColNames.Response] = self.data[CategoryProduction.ColNames.Response].str.strip()
-        self.data[CategoryProduction.ColNames.Response] = self.data[CategoryProduction.ColNames.Response].str.lower()
+        self.data[ColNames.Category] = self.data[ColNames.Category].str.strip()
+        self.data[ColNames.Category] = self.data[ColNames.Category].str.lower()
+        self.data[ColNames.Response] = self.data[ColNames.Response].str.strip()
+        self.data[ColNames.Response] = self.data[ColNames.Response].str.lower()
 
         # Apply specific substitutions.
         self.data.replace(Preferences.specific_substitutions, inplace=True)
         rt_data.replace(Preferences.specific_substitutions, inplace=True)
 
-        self.data[CategoryProduction.ColNames.MeanRT]  = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
-        self.data[CategoryProduction.ColNames.MeanZRT] = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)
+        self.data[ColNames.MeanRT]  = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
+        self.data[ColNames.MeanZRT] = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)
 
         # Build lists
 
-        self.category_labels = sorted({category for category in self.data[CategoryProduction.ColNames.Category]})
-        self.response_labels = sorted({response for response in self.data[CategoryProduction.ColNames.Response]})
+        self.category_labels = sorted({category for category in self.data[ColNames.Category]})
+        self.response_labels = sorted({response for response in self.data[ColNames.Response]})
 
         # Build vocab lists
 
@@ -109,26 +127,26 @@ class CategoryProduction(object):
     def responses_for_category(self,
                                category: str,
                                single_word_only: bool = False,
-                               sort_by: 'CategoryProduction.ColNames'=None) -> List[str]:
+                               sort_by: 'ColNames'=None) -> List[str]:
         """
         Responses for a provided category.
         :param category:
         :param single_word_only:
-        :param sort_by: CategoryProduction.ColNames
-            Default: CategoryProduction.ColNames.MeanRank
+        :param sort_by: ColNames
+            Default: ColNames.MeanRank
         :return:
         """
         # Set default values
         if sort_by is None:
-            sort_by = CategoryProduction.ColNames.MeanRank
+            sort_by = ColNames.MeanRank
 
         # Check validity
         if category not in self.category_labels:
             raise CategoryNotFoundError(category)
 
-        filtered_data = self.data[self.data[CategoryProduction.ColNames.Category] == category]
+        filtered_data = self.data[self.data[ColNames.Category] == category]
         filtered_data = filtered_data.sort_values(by=sort_by, ascending=True)
-        filtered_data = filtered_data[CategoryProduction.ColNames.Response]
+        filtered_data = filtered_data[ColNames.Response]
 
         if single_word_only:
             filtered_data = [r for r in filtered_data if " " not in r]
@@ -140,7 +158,7 @@ class CategoryProduction(object):
     def data_for_category_response_pair(self,
                                         category: str,
                                         response: str,
-                                        col_name: 'CategoryProduction.ColNames'):
+                                        col_name: 'ColNames'):
         """Data for a category–response pair."""
         if category not in self.category_labels:
             raise CategoryNotFoundError(category)
@@ -148,33 +166,14 @@ class CategoryProduction(object):
             raise ResponseNotFoundError(response)
 
         filtered_data = self.data[
-            (self.data[CategoryProduction.ColNames.Category] == category)
-            & (self.data[CategoryProduction.ColNames.Response] == response)]
+            (self.data[ColNames.Category] == category)
+            & (self.data[ColNames.Response] == response)]
 
         # We should already have dropped duplicated on loading, but just to be safe we check here
         if filtered_data.shape[0] > 1:
             logger.warning(f"Found multiple entries for {category}–{response} pair. Just using the first.")
 
         return filtered_data.iloc[0][col_name]
-
-    class ColNames(object):
-        """Column names used in the data files."""
-        # The category
-        Category             = "Category"
-        # The response (linguistic version)
-        Response             = "Response"
-        # The response (sensorimotor version)
-        ResponseSensorimotor = "SM_term"
-        # Production frequency
-        ProductionFrequency  = "ProdFreq"
-        # Mean rank
-        MeanRank             = "MeanRank"
-        # First-rank frequency
-        FirstRankFrequency   = "FRF"
-        # Mean reaction time for first responses
-        MeanRT               = "Mean RT"
-        # Mean standardised reaction time for first responses
-        MeanZRT              = "Mean zRT"
 
 
 class TermNotFoundError(Exception):
@@ -190,8 +189,8 @@ class ResponseNotFoundError(TermNotFoundError):
 
 
 def _get_mean_rt(row, rt_data: DataFrame, use_zrt: bool):
-    filtered_rt_data = rt_data[(rt_data[CategoryProduction.ColNames.Category] == row[CategoryProduction.ColNames.Category])
-                               & (rt_data[CategoryProduction.ColNames.Response] == row[CategoryProduction.ColNames.Response])]
+    filtered_rt_data = rt_data[(rt_data[ColNames.Category] == row[ColNames.Category])
+                               & (rt_data[ColNames.Response] == row[ColNames.Response])]
 
     if use_zrt:
         rts = list(filtered_rt_data["zscore_per_pt"])
