@@ -33,10 +33,10 @@ class ColNames(object):
     Category             = "Category"
     # The response (linguistic version)
     Response             = "Response"
-    # Production frequency
-    ProductionFrequency  = "Production.frequency"
     # The response (sensorimotor version)
     ResponseSensorimotor = "Sensorimotor.version"
+    # Production frequency
+    ProductionFrequency  = "Production.frequency"
     # Mean rank
     MeanRank             = "Mean.rank"
     # First-rank frequency
