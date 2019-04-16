@@ -1,0 +1,11 @@
+# Converts CP category labels (left) to SM terms (right).
+# Responses are handled in the data file using a Sensorimotor.term column.
+#
+# For now we are not considering those which have multiple terms on the SM side
+# Also not considering those which just have _ignored_words (e.g. "of") removed on the SM side
+"citrus fruit": "citrus.fruit"
+"colour": "color"
+"musical instrument": "musical.instrument"
+"jewellery": "jewelery"
+"political system": "political.system"
+"wind instrument": "wind.instrument"

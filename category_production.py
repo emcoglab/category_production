@@ -68,6 +68,7 @@ class CategoryProduction(object):
     _rt_data_filename = '1.4_RT data_ALL.csv'
 
     _specific_substutitions_filename = 'specific_substitutions.yaml'
+    _sensorimotor_categories_filename = 'sensorimotor_categories_dictionary.yaml'
 
     @classmethod
     def _default_word_tokenise(cls, x):
@@ -78,9 +79,9 @@ class CategoryProduction(object):
                  word_tokenise: callable = None):
         """
         :param word_tokenise:
-        (Optional.)
-        If provided and not None: A function which maps strings (strings) to lists of strings (token substrings).
-        Default: s ↦ s.split(" ")
+            (Optional.)
+            If provided and not None: A function which maps strings (strings) to lists of strings (token substrings).
+            Default: s ↦ s.split(" ")
         """
 
         # If no tokeniser given, use default
@@ -92,6 +93,10 @@ class CategoryProduction(object):
         # Specific substitutions to correct typos etc.
         with open(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._specific_substutitions_filename), mode="r", encoding="utf-8") as specific_substitutions_file:
             self._specific_substitutions = yaml.load(specific_substitutions_file, yaml.SafeLoader)
+
+        # Translate to sensorimotor norms
+        with open(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._sensorimotor_categories_filename), mode="r", encoding="utf-8") as sensorimotor_categories_filename:
+            self._sensorimotor_categories = yaml.load(sensorimotor_categories_filename, yaml.SafeLoader)
 
         # Load and prepare data
 
@@ -142,16 +147,24 @@ class CategoryProduction(object):
                                                  for word in word_tokenise(vocab_item)
                                                  if word not in CategoryProduction._ignored_words))
 
+    def apply_sensorimotor_substitution(self, category: str) -> str:
+        """Converts a category label to its sensorimotor version."""
+        return self._sensorimotor_categories[category] if category in self._sensorimotor_categories else category
+
     def responses_for_category(self,
                                category: str,
                                single_word_only: bool = False,
-                               sort_by: 'ColNames'=None) -> List[str]:
+                               sort_by: 'ColNames' = None,
+                               use_sensorimotor_responses: bool = False) -> List[str]:
         """
         Responses for a provided category.
         :param category:
         :param single_word_only:
+            Give only single-word responses
         :param sort_by: ColNames
-            Default: ColNames.MeanRank
+            Default: ColNames.MeanRank.
+        :param use_sensorimotor_responses:
+            Give the sensorimotor-norms version of the response.
         :return:
         """
         # Set default values
@@ -164,7 +177,10 @@ class CategoryProduction(object):
 
         filtered_data = self.data[self.data[ColNames.Category] == category]
         filtered_data = filtered_data.sort_values(by=sort_by, ascending=True)
-        filtered_data = filtered_data[ColNames.Response]
+        if use_sensorimotor_responses:
+            filtered_data = filtered_data[ColNames.ResponseSensorimotor]
+        else:
+            filtered_data = filtered_data[ColNames.Response]
 
         if single_word_only:
             filtered_data = [r for r in filtered_data if " " not in r]
