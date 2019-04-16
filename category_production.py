@@ -17,12 +17,12 @@ caiwingfield.net
 """
 from functools import partial
 from logging import getLogger
+from os import path
 from typing import List
 
+import yaml
 from numpy import mean, nan
 from pandas import DataFrame, read_csv
-
-from .category_production_preferences import Preferences
 
 logger = getLogger(__name__)
 
@@ -33,14 +33,14 @@ class ColNames(object):
     Category             = "Category"
     # The response (linguistic version)
     Response             = "Response"
-    # The response (sensorimotor version)
-    ResponseSensorimotor = "SM_term"
     # Production frequency
-    ProductionFrequency  = "ProdFreq"
+    ProductionFrequency  = "Production.frequency"
+    # The response (sensorimotor version)
+    ResponseSensorimotor = "Sensorimotor.version"
     # Mean rank
-    MeanRank             = "MeanRank"
+    MeanRank             = "Mean.rank"
     # First-rank frequency
-    FirstRankFrequency   = "FRF"
+    FirstRankFrequency   = "First.rank.frequency"
     # Mean reaction time for first responses
     MeanRT               = "Mean RT"
     # Mean standardised reaction time for first responses
@@ -64,6 +64,16 @@ class CategoryProduction(object):
         ".",
     }
 
+    _data_filename = 'Category Production Data (osf_v1).csv'
+    _rt_data_filename = '1.4_RT data_ALL.csv'
+
+    _specific_substutitions_filename = 'specific_substitutions.yaml'
+
+    @classmethod
+    def _default_word_tokenise(cls, x):
+        """Default tokeniser to use if none is provided."""
+        return x.split(" ")
+
     def __init__(self,
                  word_tokenise: callable = None):
         """
@@ -73,15 +83,20 @@ class CategoryProduction(object):
         Default: s ↦ s.split(" ")
         """
 
-        # If no tokeniser given, split on spaces
+        # If no tokeniser given, use default
         if word_tokenise is None:
-            def word_tokenise(x):
-                return x.split(" ")
+            word_tokenise = CategoryProduction._default_word_tokenise
+
+        # Prepare substitution dictionaries
+
+        # Specific substitutions to correct typos etc.
+        with open(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._specific_substutitions_filename), mode="r", encoding="utf-8") as specific_substitutions_file:
+            self._specific_substitutions = yaml.load(specific_substitutions_file, yaml.SafeLoader)
 
         # Load and prepare data
 
-        self.data: DataFrame = read_csv(Preferences.linguistic_wordlist_csv_path, index_col=0, header=0)
-        rt_data: DataFrame = read_csv(Preferences.linguistic_wordlist_rt_csv_path, index_col=0, header=0)
+        self.data: DataFrame = read_csv(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._data_filename), index_col=None, header=0)
+        rt_data: DataFrame = read_csv(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._rt_data_filename), index_col=0, header=0)
 
         # Only consider unique category–response pairs
         self.data.drop_duplicates(
@@ -89,7 +104,7 @@ class CategoryProduction(object):
             inplace=True)
 
         # Drop columns which disambiguated duplicate entries
-        self.data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
+        self.data.drop(['Item.number', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
 
         # Hide those with production frequency 1
         self.data = self.data[self.data[ColNames.ProductionFrequency] != 1]
@@ -105,8 +120,8 @@ class CategoryProduction(object):
         self.data[ColNames.Response] = self.data[ColNames.Response].str.lower()
 
         # Apply specific substitutions.
-        self.data.replace(Preferences.specific_substitutions, inplace=True)
-        rt_data.replace(Preferences.specific_substitutions, inplace=True)
+        self.data.replace(self._specific_substitutions, inplace=True)
+        rt_data.replace(self._specific_substitutions, inplace=True)
 
         self.data[ColNames.MeanRT]  = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
         self.data[ColNames.MeanZRT] = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)

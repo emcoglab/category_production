@@ -1,0 +1,11 @@
+# Substitutions to correct typos, unusually rendered words, etc.
+# key is word as it appears in CP data file; value is substitution
+bobsledging: "bobsledding"
+dodgeball:   "dodge-ball"
+fifty-seven: "57"
+gokart:      "go-kart"
+jetskiing:   "jet-skiing"
+micrometre:  "micrometer"
+slalem:      "slalom"
+stepparents: "step-parents"
+yogurt:      "yoghurt"
