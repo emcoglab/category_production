@@ -4,4 +4,4 @@
 # For now we are not considering those which have multiple terms on the SM side
 # Also not considering those which just have _ignored_words (e.g. "of") removed on the SM side
 "colour": "color"
-"jewellery": "jewelery"
+"jewellery": "jewelry"
