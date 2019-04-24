@@ -67,7 +67,7 @@ class CategoryProduction(object):
     _data_filename = 'Category Production Data (osf_v1).csv'
     _rt_data_filename = '1.4_RT data_ALL.csv'
 
-    _specific_substutitions_filename = 'specific_substitutions.yaml'
+    _specific_substutitions_filename = 'substitutions.yaml'
     _sensorimotor_categories_filename = 'sensorimotor_categories_dictionary.yaml'
 
     @classmethod
