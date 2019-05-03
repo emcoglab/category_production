@@ -147,7 +147,7 @@ class CategoryProduction(object):
                                                  for word in word_tokenise(vocab_item)
                                                  if word not in CategoryProduction._ignored_words))
 
-    def apply_sensorimotor_substitution(self, category: str) -> str:
+    def apply_sensorimotor_substitution_to_category(self, category: str) -> str:
         """Converts a category label to its sensorimotor version."""
         return self._sensorimotor_categories[category] if category in self._sensorimotor_categories else category
 
