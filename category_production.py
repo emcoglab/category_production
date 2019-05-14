@@ -78,13 +78,24 @@ class CategoryProduction(object):
         return x.split(" ")
 
     def __init__(self,
+                 minimum_production_frequency: int = 2,
                  word_tokenise: callable = None):
         """
+        :param minimum_production_frequency:
+            (Optional.)
+            Filters all data by that which has production frequency < this value.
+            For example, a value to 2 will exclude all idiosyncratic responses.
+            Use 1 to include all data.
+            Default: 2 (i.e. all non-idiosyncratic responses).
         :param word_tokenise:
             (Optional.)
             If provided and not None: A function which maps strings (strings) to lists of strings (token substrings).
             Default: s ↦ s.split(" ")
         """
+
+        # Validate arguments
+        if minimum_production_frequency < 1:
+            raise ValueError("minimum_production_frequency must be at least 1")
 
         # If no tokeniser given, use default
         if word_tokenise is None:
@@ -103,8 +114,8 @@ class CategoryProduction(object):
         # Drop columns which disambiguated duplicate entries
         self.data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
 
-        # Hide those with production frequency 1
-        self.data = self.data[self.data[ColNames.ProductionFrequency] != 1]
+        # Hide those with minimum production frequency
+        self.data = self.data[self.data[ColNames.ProductionFrequency] >= minimum_production_frequency]
 
         # A nan in the FRF column means the first-rank frequency is zero
         # Set FRF=NAN rows to FRF=0 and convert to int
