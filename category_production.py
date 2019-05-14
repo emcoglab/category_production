@@ -153,7 +153,7 @@ class CategoryProduction(object):
                                category: str,
                                single_word_only: bool = False,
                                sort_by: 'ColNames' = None,
-                               use_sensorimotor_responses: bool = False) -> List[str]:
+                               use_sensorimotor: bool = False) -> List[str]:
         """
         Responses for a provided category.
         :param category:
@@ -161,31 +161,37 @@ class CategoryProduction(object):
             Give only single-word responses
         :param sort_by: ColNames
             Default: ColNames.MeanRank.
-        :param use_sensorimotor_responses:
-            Give the sensorimotor-norms version of the response.
+        :param use_sensorimotor:
+            Give the sensorimotor-norms version of the response to the sensorimotor-norms version of the category.
         :return:
+            List of responses.
+        :raises CategoryNotFoundError: When requested category is not found in the norms
         """
         # Set default values
         if sort_by is None:
             sort_by = ColNames.MeanRank
 
         # Check validity
-        if category not in self.category_labels:
-            raise CategoryNotFoundError(category)
-
-        filtered_data = self.data[self.data[ColNames.Category] == category]
-        filtered_data = filtered_data.sort_values(by=sort_by, ascending=True)
-        if use_sensorimotor_responses:
-            filtered_data = filtered_data[ColNames.ResponseSensorimotor]
+        if use_sensorimotor:
+            if category not in self.category_labels_sensorimotor:
+                raise CategoryNotFoundError(category)
         else:
-            filtered_data = filtered_data[ColNames.Response]
+            if category not in self.category_labels:
+                raise CategoryNotFoundError(category)
+
+        # Filter data
+        filtered_data: DataFrame = self.data[self.data[
+            ColNames.CategorySensorimotor if use_sensorimotor else ColNames.Category
+        ] == category]
+        filtered_data = filtered_data.sort_values(by=sort_by, ascending=True)
+        filtered_data = filtered_data[
+            ColNames.ResponseSensorimotor if use_sensorimotor else ColNames.Response
+        ]
 
         if single_word_only:
-            filtered_data = [r for r in filtered_data if " " not in r]
+            return [r for r in filtered_data if " " not in r]
         else:
-            filtered_data = [r for r in filtered_data]
-
-        return filtered_data
+            return [r for r in filtered_data]
 
     def data_for_category_response_pair(self,
                                         category: str,
