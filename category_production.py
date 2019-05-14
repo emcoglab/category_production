@@ -17,7 +17,7 @@ caiwingfield.net
 """
 from functools import partial
 from logging import getLogger
-from typing import List
+from typing import List, Set
 
 from numpy import mean, nan
 from pandas import DataFrame, read_csv
@@ -134,23 +134,20 @@ class CategoryProduction(object):
 
         # Build lists
 
-        self.category_labels              = sorted({category for category in self.data[ColNames.Category]})
-        self.category_labels_sensorimotor = sorted({category for category in self.data[ColNames.CategorySensorimotor]})
-        self.response_labels              = sorted({response for response in self.data[ColNames.Response]})
-        self.response_labels_sensorimotor = sorted({response for response in self.data[ColNames.ResponseSensorimotor]})
+        self.category_labels: List[str]              = sorted({category for category in self.data[ColNames.Category]})
+        self.category_labels_sensorimotor: List[str] = sorted({category for category in self.data[ColNames.CategorySensorimotor]})
+        self.response_labels: List[str]              = sorted({response for response in self.data[ColNames.Response]})
+        self.response_labels_sensorimotor: List[str] = sorted({response for response in self.data[ColNames.ResponseSensorimotor]})
 
         # Build vocab lists
 
         # All multi-word tokens in the dataset
-        # TODO: this should be an unsorted set
-        self.vocabulary_multi_word  = sorted(set(self.category_labels)
-                                             | set(self.response_labels))
+        self.vocabulary_multi_word: Set[str]  = set(self.category_labels) | set(self.response_labels)
         # All single-word tokens in the dataset
-        # TODO: this should be an unsorted set
-        self.vocabulary_single_word = sorted(set(word
-                                                 for vocab_item in self.vocabulary_multi_word
-                                                 for word in word_tokenise(vocab_item)
-                                                 if word not in CategoryProduction.ignored_words))
+        self.vocabulary_single_word: Set[str] = set(word
+                                                    for vocab_item in self.vocabulary_multi_word
+                                                    for word in word_tokenise(vocab_item)
+                                                    if word not in CategoryProduction.ignored_words)
 
     def responses_for_category(self,
                                category: str,
