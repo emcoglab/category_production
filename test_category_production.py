@@ -18,7 +18,7 @@ import unittest
 from hashlib import sha256
 
 from category_production import CategoryProduction
-from preferences import Preferences
+from category_production_preferences import Preferences
 
 
 class TestFileVersions(unittest.TestCase):
@@ -26,16 +26,16 @@ class TestFileVersions(unittest.TestCase):
 
     def test_hash_of_main_data_file(self):
         """Passed 2019-05-14."""
-        with open(Preferences.linguistic_wordlist_csv_path, mode="rb") as all_data_file:
+        with open(Preferences.main_data_csv_path, mode="rb") as all_data_file:
             all_data = all_data_file.read()
         self.assertEqual(
             sha256(all_data).hexdigest(),
-            '43543e68721bbc2312515d15fe5fbadf418d8c4c40052f82ee185e00abb89ac2'
+            '0b6182867c82286cd4b359c660170784e9cf623fd0a357886883104f2009a152'
         )
 
     def test_hash_of_rt_data_file(self):
         """Passed 2019-05-14."""
-        with open(Preferences.linguistic_wordlist_rt_csv_path, mode="rb") as rt_data_file:
+        with open(Preferences.rt_data_csv_path, mode="rb") as rt_data_file:
             rt_data = rt_data_file.read()
         self.assertEqual(
             sha256(rt_data).hexdigest(),
