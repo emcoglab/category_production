@@ -17,30 +17,38 @@ caiwingfield.net
 """
 from functools import partial
 from logging import getLogger
-from os import path
 from typing import List
 
-import yaml
 from numpy import mean, nan
 from pandas import DataFrame, read_csv
+
+from preferences import Preferences
 
 logger = getLogger(__name__)
 
 
 class ColNames(object):
     """Column names used in the data files."""
+    
+    # Columns from main data file
+
     # The category
     Category             = "Category"
     # The response (linguistic version)
     Response             = "Response"
+    # The category (sensorimotor version)
+    CategorySensorimotor = "SM_category"
     # The response (sensorimotor version)
-    ResponseSensorimotor = "Sensorimotor.version"
+    ResponseSensorimotor = "SM_term"
     # Production frequency
-    ProductionFrequency  = "Production.frequency"
+    ProductionFrequency  = "ProdFreq"
     # Mean rank
-    MeanRank             = "Mean.rank"
+    MeanRank             = "MeanRank"
     # First-rank frequency
-    FirstRankFrequency   = "First.rank.frequency"
+    FirstRankFrequency   = "FRF"
+
+    # Columns for RT data
+
     # Mean reaction time for first responses
     MeanRT               = "Mean RT"
     # Mean standardised reaction time for first responses
@@ -64,12 +72,6 @@ class CategoryProduction(object):
         ".",
     }
 
-    _data_filename = 'Category Production Data (osf_v1).csv'
-    _rt_data_filename = '1.4_RT data_ALL.csv'
-
-    _specific_substutitions_filename = 'substitutions.yaml'
-    _sensorimotor_categories_filename = 'sensorimotor_categories_dictionary.yaml'
-
     @classmethod
     def _default_word_tokenise(cls, x):
         """Default tokeniser to use if none is provided."""
@@ -88,20 +90,10 @@ class CategoryProduction(object):
         if word_tokenise is None:
             word_tokenise = CategoryProduction._default_word_tokenise
 
-        # Prepare substitution dictionaries
-
-        # Specific substitutions to correct typos etc.
-        with open(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._specific_substutitions_filename), mode="r", encoding="utf-8") as specific_substitutions_file:
-            self._specific_substitutions = yaml.load(specific_substitutions_file, yaml.SafeLoader)
-
-        # Translate to sensorimotor norms
-        with open(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._sensorimotor_categories_filename), mode="r", encoding="utf-8") as sensorimotor_categories_filename:
-            self._sensorimotor_categories = yaml.load(sensorimotor_categories_filename, yaml.SafeLoader)
-
         # Load and prepare data
 
-        self.data: DataFrame = read_csv(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._data_filename), index_col=None, header=0)
-        rt_data: DataFrame = read_csv(path.join(path.dirname(path.realpath(__file__)), CategoryProduction._rt_data_filename), index_col=0, header=0)
+        self.data: DataFrame = read_csv(Preferences.linguistic_wordlist_csv_path, index_col=None, header=0)
+        rt_data: DataFrame = read_csv(Preferences.linguistic_wordlist_rt_csv_path, index_col=0, header=0)
 
         # Only consider unique category–response pairs
         self.data.drop_duplicates(
@@ -109,7 +101,7 @@ class CategoryProduction(object):
             inplace=True)
 
         # Drop columns which disambiguated duplicate entries
-        self.data.drop(['Item.number', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
+        self.data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
 
         # Hide those with production frequency 1
         self.data = self.data[self.data[ColNames.ProductionFrequency] != 1]
@@ -124,32 +116,28 @@ class CategoryProduction(object):
         self.data[ColNames.Response] = self.data[ColNames.Response].str.strip()
         self.data[ColNames.Response] = self.data[ColNames.Response].str.lower()
 
-        # Apply specific substitutions.
-        self.data.replace(self._specific_substitutions, inplace=True)
-        rt_data.replace(self._specific_substitutions, inplace=True)
-
         self.data[ColNames.MeanRT]  = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
         self.data[ColNames.MeanZRT] = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)
 
         # Build lists
 
-        self.category_labels = sorted({category for category in self.data[ColNames.Category]})
-        self.response_labels = sorted({response for response in self.data[ColNames.Response]})
+        self.category_labels              = sorted({category for category in self.data[ColNames.Category]})
+        self.category_labels_sensorimotor = sorted({category for category in self.data[ColNames.CategorySensorimotor]})
+        self.response_labels              = sorted({response for response in self.data[ColNames.Response]})
+        self.response_labels_sensorimotor = sorted({response for response in self.data[ColNames.ResponseSensorimotor]})
 
         # Build vocab lists
 
         # All multi-word tokens in the dataset
+        # TODO: this should be an unsorted set
         self.vocabulary_multi_word  = sorted(set(self.category_labels)
                                              | set(self.response_labels))
         # All single-word tokens in the dataset
+        # TODO: this should be an unsorted set
         self.vocabulary_single_word = sorted(set(word
                                                  for vocab_item in self.vocabulary_multi_word
                                                  for word in word_tokenise(vocab_item)
                                                  if word not in CategoryProduction._ignored_words))
-
-    def apply_sensorimotor_substitution_to_category(self, category: str) -> str:
-        """Converts a category label to its sensorimotor version."""
-        return self._sensorimotor_categories[category] if category in self._sensorimotor_categories else category
 
     def responses_for_category(self,
                                category: str,
