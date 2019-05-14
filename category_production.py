@@ -61,7 +61,7 @@ class CategoryProduction(object):
     In particular, the BrEng version to be used for the linguistic model.
     """
 
-    _ignored_words = {
+    ignored_words = {
         # articles
         "a", "the",
         # prepositions
@@ -150,7 +150,7 @@ class CategoryProduction(object):
         self.vocabulary_single_word = sorted(set(word
                                                  for vocab_item in self.vocabulary_multi_word
                                                  for word in word_tokenise(vocab_item)
-                                                 if word not in CategoryProduction._ignored_words))
+                                                 if word not in CategoryProduction.ignored_words))
 
     def responses_for_category(self,
                                category: str,
