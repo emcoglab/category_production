@@ -22,7 +22,7 @@ from typing import List
 from numpy import mean, nan
 from pandas import DataFrame, read_csv
 
-from preferences import Preferences
+from .category_production_preferences import Preferences
 
 logger = getLogger(__name__)
 
@@ -103,8 +103,8 @@ class CategoryProduction(object):
 
         # Load and prepare data
 
-        self.data: DataFrame = read_csv(Preferences.linguistic_wordlist_csv_path, index_col=None, header=0)
-        rt_data: DataFrame = read_csv(Preferences.linguistic_wordlist_rt_csv_path, index_col=0, header=0)
+        self.data: DataFrame = read_csv(Preferences.main_data_csv_path, index_col=None, header=0)
+        rt_data: DataFrame = read_csv(Preferences.rt_data_csv_path, index_col=0, header=0)
 
         # Only consider unique category–response pairs
         self.data.drop_duplicates(
@@ -129,6 +129,8 @@ class CategoryProduction(object):
 
         self.data[ColNames.MeanRT]  = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
         self.data[ColNames.MeanZRT] = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)
+
+        self.data.reset_index(drop=True, inplace=True)
 
         # Build lists
 

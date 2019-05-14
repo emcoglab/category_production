@@ -25,19 +25,5 @@ class Preferences(object):
     _experiment_dir = path.join(_box_root, "Experiments/Phase 1 - Categorisation/Experiment 1.4 - Category production/Data & Analysis/")
 
     # Specific paths
-    linguistic_wordlist_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_May 2019.csv")
-    linguistic_wordlist_rt_csv_path = path.join(_experiment_dir, "1.4_RT data_ALL.csv")
-
-    # Substitutions
-
-    specific_substitutions = {
-        "bobsledging": "bobsledding",
-        "dodgeball":   "dodge-ball",
-        "fifty-seven": "57",
-        "gokart":      "go-kart",
-        "jetskiing":   "jet-skiing",
-        "micrometre":  "micrometer",
-        "slalem":      "slalom",
-        "stepparents": "step-parents",
-        "yogurt":      "yoghurt",
-    }
+    main_data_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_May 2019.csv")
+    rt_data_csv_path = path.join(_experiment_dir, "1.4_RT data_ALL.csv")
