@@ -103,7 +103,7 @@ class CategoryProduction(object):
 
         # Load and prepare data
 
-        self.data: DataFrame = read_csv(Preferences.main_data_csv_path, index_col=None, header=0)
+        self.data: DataFrame = read_csv(Preferences.main_data_csv_path, index_col=0, header=0)
         rt_data: DataFrame = read_csv(Preferences.rt_data_csv_path, index_col=0, header=0)
 
         # Only consider unique category–response pairs
