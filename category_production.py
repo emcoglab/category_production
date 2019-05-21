@@ -47,6 +47,11 @@ class ColNames(object):
     # First-rank frequency
     FirstRankFrequency   = "FRF"
 
+    # Extra predictor columns
+
+    LogWordFreq          = "LgSUBTLWF"
+    Typicality           = "typicality.rating"
+
     # Columns for RT data
 
     # Mean reaction time for first responses
