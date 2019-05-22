@@ -17,6 +17,7 @@ caiwingfield.net
 """
 from functools import partial
 from logging import getLogger
+from os import path
 from typing import List, Set
 
 from numpy import mean, nan
@@ -55,9 +56,9 @@ class ColNames(object):
     # Computed columns for RT data
 
     # Mean reaction time for first responses
-    MeanRT               = "Mean RT"
+    MeanRT               = "Mean.RT"
     # Mean standardised reaction time for first responses
-    MeanZRT              = "Mean zRT"
+    MeanZRT              = "Mean.zRT"
 
 
 class CategoryProduction(object):
@@ -108,34 +109,11 @@ class CategoryProduction(object):
 
         # Load and prepare data
 
-        self.data: DataFrame = read_csv(Preferences.main_data_csv_path, index_col=0, header=0)
-        rt_data: DataFrame = read_csv(Preferences.rt_data_csv_path, index_col=0, header=0)
-
-        # Only consider unique category–response pairs
-        self.data.drop_duplicates(
-            subset=[ColNames.Category, ColNames.Response],
-            inplace=True)
-
-        # Drop columns which disambiguated duplicate entries
-        self.data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
-
-        # Hide those with minimum production frequency
-        self.data = self.data[self.data[ColNames.ProductionFrequency] >= minimum_production_frequency]
-
-        # A nan in the FRF column means the first-rank frequency is zero
-        # Set FRF=NAN rows to FRF=0 and convert to int
-        self.data[ColNames.FirstRankFrequency] = self.data[ColNames.FirstRankFrequency].fillna(0).astype(int)
-
-        # Trim whitespace and convert all words to lower case
-        self.data[ColNames.Category] = self.data[ColNames.Category].str.strip()
-        self.data[ColNames.Category] = self.data[ColNames.Category].str.lower()
-        self.data[ColNames.Response] = self.data[ColNames.Response].str.strip()
-        self.data[ColNames.Response] = self.data[ColNames.Response].str.lower()
-
-        self.data[ColNames.MeanRT]  = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
-        self.data[ColNames.MeanZRT] = self.data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)
-
-        self.data.reset_index(drop=True, inplace=True)
+        if not CategoryProduction._could_load_cache():
+            self.data: DataFrame = CategoryProduction._load_from_source(minimum_production_frequency)
+            self._save_cache()
+        else:
+            CategoryProduction._load_from_cache()
 
         # Build lists
 
@@ -153,6 +131,51 @@ class CategoryProduction(object):
                                                     for vocab_item in self.vocabulary_multi_word
                                                     for word in word_tokenise(vocab_item)
                                                     if word not in CategoryProduction.ignored_words)
+
+    @classmethod
+    def _load_from_source(cls, minimum_production_frequency) -> DataFrame:
+        """Load and rebuild file from source."""
+        data: DataFrame = read_csv(Preferences.master_main_data_csv_path, index_col=0, header=0)
+        # Only consider unique category–response pairs
+        data.drop_duplicates(
+            subset=[ColNames.Category, ColNames.Response],
+            inplace=True)
+        # Drop columns which disambiguated duplicate entries
+        data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
+        # Hide those with minimum production frequency
+        data = data[data[ColNames.ProductionFrequency] >= minimum_production_frequency]
+        # A nan in the FRF column means the first-rank frequency is zero
+        # Set FRF=NAN rows to FRF=0 and convert to int
+        data[ColNames.FirstRankFrequency] = data[ColNames.FirstRankFrequency].fillna(0).astype(int)
+        # Trim whitespace and convert all words to lower case
+        data[ColNames.Category] = data[ColNames.Category].str.strip()
+        data[ColNames.Category] = data[ColNames.Category].str.lower()
+        data[ColNames.Response] = data[ColNames.Response].str.strip()
+        data[ColNames.Response] = data[ColNames.Response].str.lower()
+        # Add RT and zRT columns
+        rt_data: DataFrame = read_csv(Preferences.master_rt_data_csv_path, index_col=0, header=0)
+        data[ColNames.MeanRT] = data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
+        data[ColNames.MeanZRT] = data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)
+        data.reset_index(drop=True, inplace=True)
+        return data
+
+    def _save_cache(self):
+        """Save current master data file."""
+        logger.info(f"Saving cached data file to {Preferences.cached_data_csv_path}")
+        with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
+            self.data.to_csv(cache_file, header=True, index=False)
+
+    @classmethod
+    def _load_from_cache(cls) -> DataFrame:
+        """Load cached master data file."""
+        logger.info(f"Loading cached data file from {Preferences.cached_data_csv_path}")
+        with open(Preferences.cached_data_csv_path, mode="r", encoding="utf-8") as cached_file:
+            return DataFrame.from_csv(cached_file, header=0, index_col=None)
+
+    @classmethod
+    def _could_load_cache(cls) -> bool:
+        """If the cached file could be loaded."""
+        return path.isfile(Preferences.cached_data_csv_path)
 
     def responses_for_category(self,
                                category: str,
