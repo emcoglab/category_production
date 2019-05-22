@@ -113,7 +113,7 @@ class CategoryProduction(object):
             self.data: DataFrame = CategoryProduction._load_from_source(minimum_production_frequency)
             self._save_cache()
         else:
-            CategoryProduction._load_from_cache()
+            self.data: DataFrame = CategoryProduction._load_from_cache()
 
         # Build lists
 
@@ -170,7 +170,7 @@ class CategoryProduction(object):
         """Load cached master data file."""
         logger.info(f"Loading cached data file from {Preferences.cached_data_csv_path}")
         with open(Preferences.cached_data_csv_path, mode="r", encoding="utf-8") as cached_file:
-            return DataFrame.from_csv(cached_file, header=0, index_col=None)
+            return read_csv(cached_file, header=0, index_col=False)
 
     @classmethod
     def _could_load_cache(cls) -> bool:
