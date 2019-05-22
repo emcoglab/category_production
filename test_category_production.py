@@ -25,21 +25,21 @@ class TestFileVersions(unittest.TestCase):
     """Sometimes files external to this repo will change. We need to detect that change."""
 
     def test_hash_of_main_data_file(self):
-        """Passed 2019-05-14."""
+        """Passed 2019-05-22."""
         with open(Preferences.main_data_csv_path, mode="rb") as all_data_file:
             all_data = all_data_file.read()
         self.assertEqual(
+            '67dfbdbcd7a382843febbc52e2ad10dea4a0e9fb48ff4f6d45daf897261ca934',
             sha256(all_data).hexdigest(),
-            '0b6182867c82286cd4b359c660170784e9cf623fd0a357886883104f2009a152'
         )
 
     def test_hash_of_rt_data_file(self):
-        """Passed 2019-05-14."""
+        """Passed 2019-05-22."""
         with open(Preferences.rt_data_csv_path, mode="rb") as rt_data_file:
             rt_data = rt_data_file.read()
         self.assertEqual(
+            'e4e52ac26d57021f3c3e77c6e7145b12c84f5a31f4dd6df4b058b933e292370a',
             sha256(rt_data).hexdigest(),
-            '39e35ec481b237f2e033f1524cffc6ef8c31d0e252aec9cd10dfad16cd961a3b'
         )
 
 
