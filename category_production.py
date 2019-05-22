@@ -162,10 +162,24 @@ class CategoryProduction(object):
         data[ColNames.Response] = data[ColNames.Response].str.strip()
         data[ColNames.Response] = data[ColNames.Response].str.lower()
 
-        # Add RT and zRT columns
+        # Get data from RT file
+
         rt_data: DataFrame = read_csv(Preferences.master_rt_data_csv_path, index_col=0, header=0)
-        data[ColNames.MeanRT]  = data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=False), axis=1)
-        data[ColNames.MeanZRT] = data.apply(partial(_get_mean_rt, rt_data=rt_data, use_zrt=True), axis=1)
+
+        # Add RT and zRT columns
+        data = data.merge(
+            rt_data[[ColNames.Category, ColNames.Response, "RT"]]
+                .groupby([ColNames.Category, ColNames.Response])
+                .mean()
+                .reset_index(), how="left"
+        ).rename(columns={"RT": ColNames.MeanRT})
+        data = data.merge(
+            rt_data[[ColNames.Category, ColNames.Response, "zscore_per_pt"]]
+                .groupby([ColNames.Category, ColNames.Response])
+                .mean()
+                .reset_index(), how="left"
+        ).rename(columns={"zscore_per_pt": ColNames.MeanZRT})
+
         data.reset_index(drop=True, inplace=True)
         return data
 
@@ -256,21 +270,6 @@ class CategoryNotFoundError(TermNotFoundError):
 
 class ResponseNotFoundError(TermNotFoundError):
     pass
-
-
-def _get_mean_rt(row, rt_data: DataFrame, use_zrt: bool):
-
-    filtered_rt_data = rt_data[(rt_data[ColNames.Category] == row[ColNames.Category])
-                               & (rt_data[ColNames.Response] == row[ColNames.Response])]
-
-    if use_zrt:
-        rts = list(filtered_rt_data["zscore_per_pt"])
-    else:
-        rts = list(filtered_rt_data["RT"])
-    if rts:
-        return mean(rts)
-    else:
-        return nan
 
 
 # For debug
