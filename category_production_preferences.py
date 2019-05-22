@@ -26,4 +26,4 @@ class Preferences(object):
 
     # Specific paths
     main_data_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_May 2019.csv")
-    rt_data_csv_path = path.join(_experiment_dir, "1.4_RT data_ALL.csv")
+    rt_data_csv_path = path.join(_experiment_dir, "1.4_RT data FULL_May 2019.csv")

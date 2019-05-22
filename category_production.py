@@ -52,7 +52,7 @@ class ColNames(object):
     LogWordFreq          = "LgSUBTLWF"
     Typicality           = "typicality.rating"
 
-    # Columns for RT data
+    # Computed columns for RT data
 
     # Mean reaction time for first responses
     MeanRT               = "Mean RT"
