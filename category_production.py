@@ -147,7 +147,7 @@ class CategoryProduction(object):
         # Build vocab lists
 
         # All multi-word tokens in the dataset
-        self.vocabulary_multi_word: Set[str]  = set(self.category_labels) | set(self.response_labels)
+        self.vocabulary_multi_word: Set[str]  = set(set(self.category_labels) | set(self.response_labels))
         # All single-word tokens in the dataset
         self.vocabulary_single_word: Set[str] = set(word
                                                     for vocab_item in self.vocabulary_multi_word
@@ -232,6 +232,7 @@ class ResponseNotFoundError(TermNotFoundError):
 
 
 def _get_mean_rt(row, rt_data: DataFrame, use_zrt: bool):
+
     filtered_rt_data = rt_data[(rt_data[ColNames.Category] == row[ColNames.Category])
                                & (rt_data[ColNames.Response] == row[ColNames.Response])]
 
