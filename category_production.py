@@ -15,12 +15,10 @@ caiwingfield.net
 2018
 ---------------------------
 """
-from functools import partial
 from logging import getLogger
 from os import path
 from typing import List, Set
 
-from numpy import mean, nan
 from pandas import DataFrame, read_csv
 
 from .category_production_preferences import Preferences
@@ -52,10 +50,13 @@ class ColNames(object):
 
     LogWordFreq          = "LgSUBTLWF"
     Typicality           = "typicality.rating"
+    # precomputed ppmi
+    LinguisticPPMI       = "Linguistic.PPMI"
 
     # Extra predictor columns for RT data
     NSyll                = "NSyll"
     PLD                  = "PLD"
+    CategoryRT           = "Category.RT.secs"
 
     # Computed columns for RT data
 
@@ -184,7 +185,7 @@ class CategoryProduction(object):
                 .reset_index(), how="left"
         ).rename(columns={"zscore_per_pt": ColNames.MeanZRT})
 
-        # Add NSyll and PLD columns
+        # Add NSyll, PLD and CategoryRT columns
         data = data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.NSyll]]
                 .groupby([ColNames.Category, ColNames.Response])
@@ -192,6 +193,11 @@ class CategoryProduction(object):
                 .reset_index(), how="left")
         data = data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.PLD]]
+                .groupby([ColNames.Category, ColNames.Response])
+                .first()
+                .reset_index(), how="left")
+        data = data.merge(
+            rt_data[[ColNames.Category, ColNames.Response, ColNames.CategoryRT]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .first()
                 .reset_index(), how="left")
