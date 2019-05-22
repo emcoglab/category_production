@@ -53,6 +53,10 @@ class ColNames(object):
     LogWordFreq          = "LgSUBTLWF"
     Typicality           = "typicality.rating"
 
+    # Extra predictor columns for RT data
+    NSyll                = "NSyll"
+    PLD                  = "PLD"
+
     # Computed columns for RT data
 
     # Mean reaction time for first responses
@@ -179,6 +183,18 @@ class CategoryProduction(object):
                 .mean()
                 .reset_index(), how="left"
         ).rename(columns={"zscore_per_pt": ColNames.MeanZRT})
+
+        # Add NSyll and PLD columns
+        data = data.merge(
+            rt_data[[ColNames.Category, ColNames.Response, ColNames.NSyll]]
+                .groupby([ColNames.Category, ColNames.Response])
+                .first()
+                .reset_index(), how="left")
+        data = data.merge(
+            rt_data[[ColNames.Category, ColNames.Response, ColNames.PLD]]
+                .groupby([ColNames.Category, ColNames.Response])
+                .first()
+                .reset_index(), how="left")
 
         data.reset_index(drop=True, inplace=True)
         return data
