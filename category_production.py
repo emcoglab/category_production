@@ -83,6 +83,9 @@ class CategoryProduction(object):
         ".",
     }
 
+    # individual z-rts outside +/- this limit won't count towards the mean
+    zrt_outliers_limit = 3
+
     @classmethod
     def _default_word_tokenise(cls, x):
         """Default tokeniser to use if none is provided."""
@@ -178,8 +181,12 @@ class CategoryProduction(object):
                 .mean()
                 .reset_index(), how="left"
         ).rename(columns={"RT": ColNames.MeanRT})
+        # For mean zRT we want to filter outliers
+        central_rt_data = rt_data[
+            (rt_data["zscore_per_pt"] <= CategoryProduction.zrt_outliers_limit)
+            & (rt_data["zscore_per_pt"] >= -CategoryProduction.zrt_outliers_limit)]
         data = data.merge(
-            rt_data[[ColNames.Category, ColNames.Response, "zscore_per_pt"]]
+            central_rt_data[[ColNames.Category, ColNames.Response, "zscore_per_pt"]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .mean()
                 .reset_index(), how="left"
