@@ -24,6 +24,8 @@ class Preferences(object):
     _box_root = "/storage/hpc/57/wingfiel/"
     _experiment_dir = path.join(_box_root, "experimental_data")
 
-    # Specific paths
-    main_data_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_May 2019.csv")
-    rt_data_csv_path = path.join(_experiment_dir, "1.4_RT data_ALL.csv")
+    master_main_data_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_May 2019.csv")
+    master_rt_data_csv_path = path.join(_experiment_dir, "1.4_RT data FULL_May 2019.csv")
+
+    # Cached versions
+    cached_data_csv_path = path.join(path.dirname(__file__), "cache.csv")
