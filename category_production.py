@@ -93,7 +93,8 @@ class CategoryProduction(object):
 
     def __init__(self,
                  minimum_production_frequency: int = 2,
-                 word_tokenise: callable = None):
+                 word_tokenise: callable = None,
+                 use_cache: bool = False):
         """
         :param minimum_production_frequency:
             (Optional.)
@@ -105,6 +106,11 @@ class CategoryProduction(object):
             (Optional.)
             If provided and not None: A function which maps strings (strings) to lists of strings (token substrings).
             Default: s ↦ s.split(" ")
+        :param use_cache:
+            (Optional.)
+            Use a cached version of the data if available.  Use with caution in case the format of the underlying data
+            has changed after an update.
+            Default: False.
         """
 
         # Validate arguments
@@ -116,7 +122,7 @@ class CategoryProduction(object):
             word_tokenise = CategoryProduction._default_word_tokenise
 
         # Load and prepare data
-        if not CategoryProduction._could_load_cache():
+        if not CategoryProduction._could_load_cache() or not use_cache:
             self.data: DataFrame = CategoryProduction._load_from_source(minimum_production_frequency)
             self._save_cache()
         else:
