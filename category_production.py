@@ -122,9 +122,17 @@ class CategoryProduction(object):
             word_tokenise = CategoryProduction._default_word_tokenise
 
         # Load and prepare data
-        if not CategoryProduction._could_load_cache() or not use_cache:
+
+        # If we're not using the cache, don't save it afterward
+        if not use_cache:
+            self.data: DataFrame = CategoryProduction._load_from_source(minimum_production_frequency)
+
+        # If we're using the cache but it doesn't exist, create it when possible
+        elif not CategoryProduction._could_load_cache():
             self.data: DataFrame = CategoryProduction._load_from_source(minimum_production_frequency)
             self._save_cache()
+
+        # If we can use the cache, do
         else:
             self.data: DataFrame = CategoryProduction._load_from_cache()
 
