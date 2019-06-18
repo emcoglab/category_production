@@ -16,7 +16,7 @@ caiwingfield.net
 ---------------------------
 """
 from logging import getLogger
-from os import path
+from os import path, remove
 from typing import List, Set
 
 from pandas import DataFrame, read_csv
@@ -122,11 +122,23 @@ class CategoryProduction(object):
             word_tokenise = CategoryProduction._default_word_tokenise
 
         # Load and prepare data
-        if not CategoryProduction._could_load_cache() or not use_cache:
-            self.data: DataFrame = CategoryProduction._load_from_source(minimum_production_frequency)
+
+        # If we're not using the cache, don't save it afterward. In fact, clear it.
+        if not use_cache:
+            self.data: DataFrame = CategoryProduction._load_from_source()
+            self._clear_cache()
+
+        # If we're using the cache but it doesn't exist, create it when possible
+        elif not self._could_load_cache():
+            self.data: DataFrame = CategoryProduction._load_from_source()
             self._save_cache()
+
+        # If we can use the cache, do
         else:
             self.data: DataFrame = CategoryProduction._load_from_cache()
+
+        # Delete rows with minimum production frequency
+        self.data = self.data[self.data[ColNames.ProductionFrequency] >= minimum_production_frequency]
 
         # Build label lists
         self.category_labels: List[str]              = sorted({category for category in self.data[ColNames.Category]})
@@ -149,8 +161,14 @@ class CategoryProduction(object):
         with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
             self.data.to_csv(cache_file, header=True, index=False)
 
+    def _clear_cache(self):
+        """Clear the current cached data file."""
+        if self._could_load_cache():
+            logger.warning(f"Clearing cached data [{Preferences.cached_data_csv_path}]")
+            remove(Preferences.cached_data_csv_path)
+
     @classmethod
-    def _load_from_source(cls, minimum_production_frequency) -> DataFrame:
+    def _load_from_source(cls) -> DataFrame:
         """Load and rebuild file from source."""
 
         data: DataFrame = read_csv(Preferences.master_main_data_csv_path, index_col=0, header=0)
@@ -162,9 +180,6 @@ class CategoryProduction(object):
 
         # Drop columns which disambiguated duplicate entries
         data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
-
-        # Hide those with minimum production frequency
-        data = data[data[ColNames.ProductionFrequency] >= minimum_production_frequency]
 
         # A nan in the FRF column means the first-rank frequency is zero
         # Set FRF=NAN rows to FRF=0 and convert to int
