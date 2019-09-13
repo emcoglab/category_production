@@ -16,7 +16,7 @@ caiwingfield.net
 ---------------------------
 """
 from logging import getLogger
-from os import path, remove
+from os import path
 from typing import List, Set
 
 from pandas import DataFrame, read_csv
@@ -64,6 +64,10 @@ class ColNames(object):
     MeanRT               = "Mean.RT"
     # Mean standardised reaction time for first responses
     MeanZRT              = "Mean.zRT"
+
+    # Participant data columns
+
+    Participant          = "Participant"
 
 
 class CategoryProduction(object):
@@ -121,24 +125,26 @@ class CategoryProduction(object):
         if word_tokenise is None:
             word_tokenise = CategoryProduction._default_word_tokenise
 
-        # Load and prepare data
 
-        # If we're not using the cache, don't save it afterward. In fact, clear it.
-        if not use_cache:
-            self.data: DataFrame = CategoryProduction._load_from_source()
-            self._clear_cache()
+        # Data for individual participant responses we can always load from source as there are no computed columns
+        self.participant_data: DataFrame = CategoryProduction._load_participant_data_from_source()
+        self._process_participant_data()
 
-        # If we're using the cache but it doesn't exist, create it when possible
-        elif not self._could_load_cache():
-            self.data: DataFrame = CategoryProduction._load_from_source()
+        self.participants: List[int] = list(self.participant_data[ColNames.Participant].unique())
+
+        # Data collapsed over category/response pairs has additional computed columns, which we may want to cache
+        if (not use_cache) or (not CategoryProduction._could_load_cache()):
+            # If we can't use the cache, we produce it as normal
+            self.data: DataFrame = self.participant_data.copy()
+            self._process_collapsed_data()
             self._save_cache()
-
-        # If we can use the cache, do
         else:
-            self.data: DataFrame = CategoryProduction._load_from_cache()
+            # If we can load from cache, we do
+            self.data = CategoryProduction._load_from_cache()
 
         # Delete rows with minimum production frequency
         self.data = self.data[self.data[ColNames.ProductionFrequency] >= minimum_production_frequency]
+        self.participant_data = self.participant_data[self.participant_data[ColNames.ProductionFrequency] >= minimum_production_frequency]
 
         # Build label lists
         self.category_labels: List[str]              = sorted({category for category in self.data[ColNames.Category]})
@@ -155,48 +161,38 @@ class CategoryProduction(object):
                                                     for word in word_tokenise(vocab_item)
                                                     if word not in CategoryProduction.ignored_words)
 
-    def _save_cache(self):
-        """Save current master data file."""
-        logger.info(f"Saving cached data file to {Preferences.cached_data_csv_path}")
-        with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
-            self.data.to_csv(cache_file, header=True, index=False)
-
-    def _clear_cache(self):
-        """Clear the current cached data file."""
-        if self._could_load_cache():
-            logger.warning(f"Clearing cached data [{Preferences.cached_data_csv_path}]")
-            remove(Preferences.cached_data_csv_path)
-
     @classmethod
-    def _load_from_source(cls) -> DataFrame:
-        """Load and rebuild file from source."""
+    def _load_participant_data_from_source(cls) -> DataFrame:
+        participant_data: DataFrame = read_csv(Preferences.master_main_data_csv_path, index_col=0, header=0)
+        return participant_data
 
-        data: DataFrame = read_csv(Preferences.master_main_data_csv_path, index_col=0, header=0)
-
-        # Only consider unique category–response pairs
-        data.drop_duplicates(
-            subset=[ColNames.Category, ColNames.Response],
-            inplace=True)
-
-        # Drop columns which disambiguated duplicate entries
-        data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
+    def _process_participant_data(self):
+        """Mutates self.participant_data"""
 
         # A nan in the FRF column means the first-rank frequency is zero
         # Set FRF=NAN rows to FRF=0 and convert to int
-        data[ColNames.FirstRankFrequency] = data[ColNames.FirstRankFrequency].fillna(0).astype(int)
+        self.participant_data[ColNames.FirstRankFrequency] = self.participant_data[ColNames.FirstRankFrequency].fillna(0).astype(int)
 
         # Trim whitespace and convert all words to lower case
-        data[ColNames.Category] = data[ColNames.Category].str.strip()
-        data[ColNames.Category] = data[ColNames.Category].str.lower()
-        data[ColNames.Response] = data[ColNames.Response].str.strip()
-        data[ColNames.Response] = data[ColNames.Response].str.lower()
+        self.participant_data[ColNames.Category] = self.participant_data[ColNames.Category].str.strip()
+        self.participant_data[ColNames.Category] = self.participant_data[ColNames.Category].str.lower()
+        self.participant_data[ColNames.Response] = self.participant_data[ColNames.Response].str.strip()
+        self.participant_data[ColNames.Response] = self.participant_data[ColNames.Response].str.lower()
+
+    def _process_collapsed_data(self):
+        """Mutates self.data"""
+        # Collapse data over category–response pairs
+        self.data.drop_duplicates(
+            subset=[ColNames.Category, ColNames.Response],
+            inplace=True)
+        self.data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
 
         # Get data from RT file
 
         rt_data: DataFrame = read_csv(Preferences.master_rt_data_csv_path, index_col=0, header=0)
 
         # Add RT and zRT columns
-        data = data.merge(
+        self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, "RT"]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .mean()
@@ -206,7 +202,7 @@ class CategoryProduction(object):
         central_rt_data = rt_data[
             (rt_data["zscore_per_pt"] <= CategoryProduction.zrt_outliers_limit)
             & (rt_data["zscore_per_pt"] >= -CategoryProduction.zrt_outliers_limit)]
-        data = data.merge(
+        self.data = self.data.merge(
             central_rt_data[[ColNames.Category, ColNames.Response, "zscore_per_pt"]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .mean()
@@ -214,24 +210,45 @@ class CategoryProduction(object):
         ).rename(columns={"zscore_per_pt": ColNames.MeanZRT})
 
         # Add NSyll, PLD and CategoryRT columns
-        data = data.merge(
+        self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.NSyll]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .first()
                 .reset_index(), how="left")
-        data = data.merge(
+        self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.PLD]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .first()
                 .reset_index(), how="left")
-        data = data.merge(
+        self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.CategoryRT]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .first()
                 .reset_index(), how="left")
 
-        data.reset_index(drop=True, inplace=True)
-        return data
+        # Add participant hitrate data
+        for participant in self.participants:
+            self.data[f"Participant {participant} saw category"] = self.data.apply(
+                lambda row: self.participant_data[
+                                (self.participant_data[ColNames.Category] == row[ColNames.Category])
+                                & (self.participant_data[ColNames.Participant] == participant)
+                                ].shape[0] > 0,
+                axis=1)
+            self.data[f"Participant {participant} response hit"] = self.data.apply(
+                lambda row: self.participant_data[
+                                (self.participant_data[ColNames.Category] == row[ColNames.Category])
+                                & (self.participant_data[ColNames.Response] == row[ColNames.Response])
+                                & (self.participant_data[ColNames.Participant] == participant)
+                                ].shape[0] > 0,
+                axis=1)
+
+        self.data.reset_index(drop=True, inplace=True)
+
+    def _save_cache(self):
+        """Save current master data file."""
+        logger.info(f"Saving cached data file to {Preferences.cached_data_csv_path}")
+        with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
+            self.data.to_csv(cache_file, header=True, index=False)
 
     @classmethod
     def _load_from_cache(cls) -> DataFrame:
