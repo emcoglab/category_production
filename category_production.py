@@ -125,7 +125,6 @@ class CategoryProduction(object):
         if word_tokenise is None:
             word_tokenise = CategoryProduction._default_word_tokenise
 
-
         # Data for individual participant responses we can always load from source as there are no computed columns
         self.participant_data: DataFrame = CategoryProduction._load_participant_data_from_source()
         self._process_participant_data()
@@ -228,20 +227,16 @@ class CategoryProduction(object):
 
         # Add participant hitrate data
         for participant in self.participants:
-            self.data[f"Participant {participant} saw category"] = self.data.apply(
-                lambda row: self.participant_data[
-                                (self.participant_data[ColNames.Category] == row[ColNames.Category])
-                                & (self.participant_data[ColNames.Participant] == participant)
-                                ].shape[0] > 0,
-                axis=1)
-            self.data[f"Participant {participant} response hit"] = self.data.apply(
-                lambda row: self.participant_data[
-                                (self.participant_data[ColNames.Category] == row[ColNames.Category])
-                                & (self.participant_data[ColNames.Response] == row[ColNames.Response])
-                                & (self.participant_data[ColNames.Participant] == participant)
-                                ].shape[0] > 0,
-                axis=1)
-
+            logger.info(f"Adding participant {participant} hit info")
+            this_ppt_data = self.participant_data[self.participant_data[ColNames.Participant] == participant].copy()
+            this_ppt_data[f"Participant {participant} saw category"] = True
+            this_ppt_data[f"Participant {participant} response hit"] = True
+            # add saw-category column
+            self.data = self.data.merge(this_ppt_data[[ColNames.Category, f"Participant {participant} saw category"]].groupby(ColNames.Category).first(), how="left", on=ColNames.Category)
+            self.data[f"Participant {participant} saw category"] = self.data[f"Participant {participant} saw category"].fillna(False).astype(bool)
+            # add response-hit column
+            self.data = self.data.merge(this_ppt_data[[ColNames.Category, ColNames.Response, f"Participant {participant} response hit"]], how="left", on=[ColNames.Category, ColNames.Response])
+            self.data[f"Participant {participant} response hit"] = self.data[f"Participant {participant} response hit"].fillna(False).astype(bool)
         self.data.reset_index(drop=True, inplace=True)
 
     def _save_cache(self):
