@@ -19,9 +19,10 @@ from logging import getLogger
 from os import path, remove
 from typing import List, Set
 
-import git
+from git import Repo
 from pandas import DataFrame, read_csv
 
+from category_production.exceptions import CategoryNotFoundError, ResponseNotFoundError
 from .category_production_preferences import Preferences
 
 logger = getLogger(__name__)
@@ -257,7 +258,7 @@ class CategoryProduction(object):
     @property
     def _cache_version(self) -> str:
         """The version of the current cache."""
-        return git.Repo(search_parent_directories=True).head.object.hexsha
+        return Repo(search_parent_directories=True).head.object.hexsha
 
     @classmethod
     def _load_from_cache(cls) -> DataFrame:
@@ -351,18 +352,6 @@ class CategoryProduction(object):
             logger.warning(f"Found multiple entries for {category}–{response} pair. Just using the first.")
 
         return filtered_data.iloc[0][col_name]
-
-
-class TermNotFoundError(Exception):
-    pass
-
-
-class CategoryNotFoundError(TermNotFoundError):
-    pass
-
-
-class ResponseNotFoundError(TermNotFoundError):
-    pass
 
 
 # For debug
