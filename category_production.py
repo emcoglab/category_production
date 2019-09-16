@@ -16,9 +16,10 @@ caiwingfield.net
 ---------------------------
 """
 from logging import getLogger
-from os import path
+from os import path, remove
 from typing import List, Set
 
+import git
 from pandas import DataFrame, read_csv
 
 from .category_production_preferences import Preferences
@@ -116,6 +117,10 @@ class CategoryProduction(object):
             has changed after an update.
             Default: False.
         """
+
+        if not self._saved_cache_version_valid():
+            logger.warning("Cache version invalid")
+            self._clear_saved_cache()
 
         # Validate arguments
         if minimum_production_frequency < 1:
@@ -239,11 +244,20 @@ class CategoryProduction(object):
             self.data[f"Participant {participant} response hit"] = self.data[f"Participant {participant} response hit"].fillna(False).astype(bool)
         self.data.reset_index(drop=True, inplace=True)
 
+    # region Cache
+
     def _save_cache(self):
         """Save current master data file."""
         logger.info(f"Saving cached data file to {Preferences.cached_data_csv_path}")
         with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
             self.data.to_csv(cache_file, header=True, index=False)
+        with open(Preferences.cache_version_path, mode="w", encoding="utf-8") as cache_version:
+            cache_version.write(self._cache_version)
+
+    @property
+    def _cache_version(self) -> str:
+        """The version of the current cache."""
+        return git.Repo(search_parent_directories=True).head.object.hexsha
 
     @classmethod
     def _load_from_cache(cls) -> DataFrame:
@@ -256,6 +270,23 @@ class CategoryProduction(object):
     def _could_load_cache(cls) -> bool:
         """If the cached file could be loaded."""
         return path.isfile(Preferences.cached_data_csv_path)
+
+    def _saved_cache_version_valid(self) -> bool:
+        try:
+            with open(Preferences.cache_version_path, mode="r", encoding="utf-8") as cache_file:
+                cache_version = cache_file.read()
+            return cache_version == self._cache_version
+        except FileNotFoundError:
+            return False
+
+    def _clear_saved_cache(self):
+        """Clear the current cached data file."""
+        if self._could_load_cache():
+            logger.warning(f"Clearing cached data [{Preferences.cached_data_csv_path}]")
+            remove(Preferences.cached_data_csv_path)
+            remove(Preferences.cache_version_path)
+
+    # endregion
 
     def responses_for_category(self,
                                category: str,
