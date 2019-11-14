@@ -19,8 +19,10 @@ from logging import getLogger
 from os import path, remove
 from typing import List, Set
 
+from git import Repo
 from pandas import DataFrame, read_csv
 
+from category_production.exceptions import CategoryNotFoundError, ResponseNotFoundError
 from .category_production_preferences import Preferences
 
 logger = getLogger(__name__)
@@ -64,6 +66,10 @@ class ColNames(object):
     MeanRT               = "Mean.RT"
     # Mean standardised reaction time for first responses
     MeanZRT              = "Mean.zRT"
+
+    # Participant data columns
+
+    Participant          = "Participant"
 
 
 class CategoryProduction(object):
@@ -113,6 +119,10 @@ class CategoryProduction(object):
             Default: False.
         """
 
+        if not self._saved_cache_version_valid():
+            logger.warning("Cache version invalid")
+            self._clear_saved_cache()
+
         # Validate arguments
         if minimum_production_frequency < 1:
             raise ValueError("minimum_production_frequency must be at least 1")
@@ -121,24 +131,25 @@ class CategoryProduction(object):
         if word_tokenise is None:
             word_tokenise = CategoryProduction._default_word_tokenise
 
-        # Load and prepare data
+        # Data for individual participant responses we can always load from source as there are no computed columns
+        self.participant_data: DataFrame = CategoryProduction._load_participant_data_from_source()
+        self._process_participant_data()
 
-        # If we're not using the cache, don't save it afterward. In fact, clear it.
-        if not use_cache:
-            self.data: DataFrame = CategoryProduction._load_from_source()
-            self._clear_cache()
+        self.participants: List[int] = list(self.participant_data[ColNames.Participant].unique())
 
-        # If we're using the cache but it doesn't exist, create it when possible
-        elif not self._could_load_cache():
-            self.data: DataFrame = CategoryProduction._load_from_source()
+        # Data collapsed over category/response pairs has additional computed columns, which we may want to cache
+        if (not use_cache) or (not CategoryProduction._could_load_cache()):
+            # If we can't use the cache, we produce it as normal
+            self.data: DataFrame = self.participant_data.copy()
+            self._process_collapsed_data()
             self._save_cache()
-
-        # If we can use the cache, do
         else:
-            self.data: DataFrame = CategoryProduction._load_from_cache()
+            # If we can load from cache, we do
+            self.data = CategoryProduction._load_from_cache()
 
         # Delete rows with minimum production frequency
         self.data = self.data[self.data[ColNames.ProductionFrequency] >= minimum_production_frequency]
+        self.participant_data = self.participant_data[self.participant_data[ColNames.ProductionFrequency] >= minimum_production_frequency]
 
         # Build label lists
         self.category_labels: List[str]              = sorted({category for category in self.data[ColNames.Category]})
@@ -155,48 +166,38 @@ class CategoryProduction(object):
                                                     for word in word_tokenise(vocab_item)
                                                     if word not in CategoryProduction.ignored_words)
 
-    def _save_cache(self):
-        """Save current master data file."""
-        logger.info(f"Saving cached data file to {Preferences.cached_data_csv_path}")
-        with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
-            self.data.to_csv(cache_file, header=True, index=False)
-
-    def _clear_cache(self):
-        """Clear the current cached data file."""
-        if self._could_load_cache():
-            logger.warning(f"Clearing cached data [{Preferences.cached_data_csv_path}]")
-            remove(Preferences.cached_data_csv_path)
-
     @classmethod
-    def _load_from_source(cls) -> DataFrame:
-        """Load and rebuild file from source."""
+    def _load_participant_data_from_source(cls) -> DataFrame:
+        participant_data: DataFrame = read_csv(Preferences.master_main_data_csv_path, index_col=0, header=0)
+        return participant_data
 
-        data: DataFrame = read_csv(Preferences.master_main_data_csv_path, index_col=0, header=0)
-
-        # Only consider unique category–response pairs
-        data.drop_duplicates(
-            subset=[ColNames.Category, ColNames.Response],
-            inplace=True)
-
-        # Drop columns which disambiguated duplicate entries
-        data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
+    def _process_participant_data(self):
+        """Mutates self.participant_data"""
 
         # A nan in the FRF column means the first-rank frequency is zero
         # Set FRF=NAN rows to FRF=0 and convert to int
-        data[ColNames.FirstRankFrequency] = data[ColNames.FirstRankFrequency].fillna(0).astype(int)
+        self.participant_data[ColNames.FirstRankFrequency] = self.participant_data[ColNames.FirstRankFrequency].fillna(0).astype(int)
 
         # Trim whitespace and convert all words to lower case
-        data[ColNames.Category] = data[ColNames.Category].str.strip()
-        data[ColNames.Category] = data[ColNames.Category].str.lower()
-        data[ColNames.Response] = data[ColNames.Response].str.strip()
-        data[ColNames.Response] = data[ColNames.Response].str.lower()
+        self.participant_data[ColNames.Category] = self.participant_data[ColNames.Category].str.strip()
+        self.participant_data[ColNames.Category] = self.participant_data[ColNames.Category].str.lower()
+        self.participant_data[ColNames.Response] = self.participant_data[ColNames.Response].str.strip()
+        self.participant_data[ColNames.Response] = self.participant_data[ColNames.Response].str.lower()
+
+    def _process_collapsed_data(self):
+        """Mutates self.data"""
+        # Collapse data over category–response pairs
+        self.data.drop_duplicates(
+            subset=[ColNames.Category, ColNames.Response],
+            inplace=True)
+        self.data.drop(['Item', 'Participant', 'Trial.no.', 'Rank'], axis=1, inplace=True)
 
         # Get data from RT file
 
         rt_data: DataFrame = read_csv(Preferences.master_rt_data_csv_path, index_col=0, header=0)
 
         # Add RT and zRT columns
-        data = data.merge(
+        self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, "RT"]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .mean()
@@ -206,7 +207,7 @@ class CategoryProduction(object):
         central_rt_data = rt_data[
             (rt_data["zscore_per_pt"] <= CategoryProduction.zrt_outliers_limit)
             & (rt_data["zscore_per_pt"] >= -CategoryProduction.zrt_outliers_limit)]
-        data = data.merge(
+        self.data = self.data.merge(
             central_rt_data[[ColNames.Category, ColNames.Response, "zscore_per_pt"]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .mean()
@@ -214,24 +215,50 @@ class CategoryProduction(object):
         ).rename(columns={"zscore_per_pt": ColNames.MeanZRT})
 
         # Add NSyll, PLD and CategoryRT columns
-        data = data.merge(
+        self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.NSyll]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .first()
                 .reset_index(), how="left")
-        data = data.merge(
+        self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.PLD]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .first()
                 .reset_index(), how="left")
-        data = data.merge(
+        self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.CategoryRT]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .first()
                 .reset_index(), how="left")
 
-        data.reset_index(drop=True, inplace=True)
-        return data
+        # Add participant hitrate data
+        for participant in self.participants:
+            logger.info(f"Adding participant {participant} hit info")
+            this_ppt_data = self.participant_data[self.participant_data[ColNames.Participant] == participant].copy()
+            this_ppt_data[f"Participant {participant} saw category"] = True
+            this_ppt_data[f"Participant {participant} response hit"] = True
+            # add saw-category column
+            self.data = self.data.merge(this_ppt_data[[ColNames.Category, f"Participant {participant} saw category"]].groupby(ColNames.Category).first(), how="left", on=ColNames.Category)
+            self.data[f"Participant {participant} saw category"] = self.data[f"Participant {participant} saw category"].fillna(False).astype(bool)
+            # add response-hit column
+            self.data = self.data.merge(this_ppt_data[[ColNames.Category, ColNames.Response, f"Participant {participant} response hit"]], how="left", on=[ColNames.Category, ColNames.Response])
+            self.data[f"Participant {participant} response hit"] = self.data[f"Participant {participant} response hit"].fillna(False).astype(bool)
+        self.data.reset_index(drop=True, inplace=True)
+
+    # region Cache
+
+    def _save_cache(self):
+        """Save current master data file."""
+        logger.info(f"Saving cached data file to {Preferences.cached_data_csv_path}")
+        with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
+            self.data.to_csv(cache_file, header=True, index=False)
+        with open(Preferences.cache_version_path, mode="w", encoding="utf-8") as cache_version:
+            cache_version.write(self._cache_version)
+
+    @property
+    def _cache_version(self) -> str:
+        """The version of the current cache."""
+        return Repo(search_parent_directories=True).head.object.hexsha
 
     @classmethod
     def _load_from_cache(cls) -> DataFrame:
@@ -244,6 +271,23 @@ class CategoryProduction(object):
     def _could_load_cache(cls) -> bool:
         """If the cached file could be loaded."""
         return path.isfile(Preferences.cached_data_csv_path)
+
+    def _saved_cache_version_valid(self) -> bool:
+        try:
+            with open(Preferences.cache_version_path, mode="r", encoding="utf-8") as cache_file:
+                cache_version = cache_file.read()
+            return cache_version == self._cache_version
+        except FileNotFoundError:
+            return False
+
+    def _clear_saved_cache(self):
+        """Clear the current cached data file."""
+        if self._could_load_cache():
+            logger.warning(f"Clearing cached data [{Preferences.cached_data_csv_path}]")
+            remove(Preferences.cached_data_csv_path)
+            remove(Preferences.cache_version_path)
+
+    # endregion
 
     def responses_for_category(self,
                                category: str,
@@ -308,18 +352,6 @@ class CategoryProduction(object):
             logger.warning(f"Found multiple entries for {category}–{response} pair. Just using the first.")
 
         return filtered_data.iloc[0][col_name]
-
-
-class TermNotFoundError(Exception):
-    pass
-
-
-class CategoryNotFoundError(TermNotFoundError):
-    pass
-
-
-class ResponseNotFoundError(TermNotFoundError):
-    pass
 
 
 # For debug

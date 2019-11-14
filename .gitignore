@@ -106,3 +106,4 @@ ENV/
 
 # Cached data
 cache.csv
+cache.version

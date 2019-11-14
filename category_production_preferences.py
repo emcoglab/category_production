@@ -29,3 +29,4 @@ class Preferences(object):
 
     # Cached versions
     cached_data_csv_path = path.join(path.dirname(__file__), "cache.csv")
+    cache_version_path = path.join(path.dirname(__file__), 'cache.version')
