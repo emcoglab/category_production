@@ -19,7 +19,6 @@ from logging import getLogger
 from os import path, remove
 from typing import List, Set
 
-from git import Repo
 from pandas import DataFrame, read_csv
 
 from category_production.exceptions import CategoryNotFoundError, ResponseNotFoundError
@@ -258,7 +257,16 @@ class CategoryProduction(object):
     @property
     def _cache_version(self) -> str:
         """The version of the current cache."""
-        return Repo(search_parent_directories=True).head.object.hexsha
+        try:
+            from git import Repo
+            git_hash = Repo(search_parent_directories=True).head.object.hexsha
+        except ModuleNotFoundError:
+            try:
+                import subprocess
+                git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+            except OSError:
+                git_hash = "Unknown"
+        return git_hash
 
     @classmethod
     def _load_from_cache(cls) -> DataFrame:
