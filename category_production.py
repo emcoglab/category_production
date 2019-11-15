@@ -263,7 +263,7 @@ class CategoryProduction(object):
         except ModuleNotFoundError:
             try:
                 import subprocess
-                git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+                git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
             except OSError:
                 git_hash = "Unknown"
         return git_hash
