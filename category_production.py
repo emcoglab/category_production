@@ -21,7 +21,8 @@ from typing import List, Set
 
 from pandas import DataFrame, read_csv
 
-from category_production.exceptions import CategoryNotFoundError, ResponseNotFoundError
+from .utils import unique
+from .exceptions import CategoryNotFoundError, ResponseNotFoundError
 from .category_production_preferences import Preferences
 
 logger = getLogger(__name__)
@@ -301,7 +302,9 @@ class CategoryProduction(object):
                                category: str,
                                single_word_only: bool = False,
                                sort_by: 'ColNames' = None,
-                               use_sensorimotor: bool = False) -> List[str]:
+                               use_sensorimotor: bool = False,
+                               force_unique: bool = False,
+                               ) -> List[str]:
         """
         Responses for a provided category.
         :param category:
@@ -311,6 +314,15 @@ class CategoryProduction(object):
             Default: ColNames.MeanRank.
         :param use_sensorimotor:
             Give the sensorimotor-norms version of the response to the sensorimotor-norms version of the category.
+        :param force_unique:
+            If set to true, gives UNIQUE responses only.
+            Only applies when `use_sensorimotor` is True:
+            When returning sensorimotor equivalents, sometimes there will be collisions.
+                E.g.
+                winter sports -> downhill skiing [skiing]
+                winter sports -> skiing [skiing]
+            In this case if `force_unique` is False, there will be 2 skiing entries (to match with each of the unique
+            non-sensorimotor versions), and if True, there will be one (just "skiing").
         :return:
             List of responses.
         :raises CategoryNotFoundError: When requested category is not found in the norms
@@ -337,9 +349,14 @@ class CategoryProduction(object):
         ]
 
         if single_word_only:
-            return [r for r in filtered_data if " " not in r]
+            responses = [r for r in filtered_data if " " not in r]
         else:
-            return [r for r in filtered_data]
+            responses = [r for r in filtered_data]
+
+        if use_sensorimotor and force_unique:
+            responses = unique(responses)
+
+        return responses
 
     def data_for_category_response_pair(self,
                                         category: str,
