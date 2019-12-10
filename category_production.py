@@ -173,7 +173,6 @@ class CategoryProduction(object):
 
     def _process_participant_data(self):
         """Mutates self.participant_data"""
-
         # A nan in the FRF column means the first-rank frequency is zero
         # Set FRF=NAN rows to FRF=0 and convert to int
         self.participant_data[ColNames.FirstRankFrequency] = self.participant_data[ColNames.FirstRankFrequency].fillna(0).astype(int)
@@ -183,6 +182,14 @@ class CategoryProduction(object):
         self.participant_data[ColNames.Category] = self.participant_data[ColNames.Category].str.lower()
         self.participant_data[ColNames.Response] = self.participant_data[ColNames.Response].str.strip()
         self.participant_data[ColNames.Response] = self.participant_data[ColNames.Response].str.lower()
+
+        # Sometimes participants give duplicate responses, and we only want the first one for each participant
+        # First sort the participant data so we can drop the correct duplicates.
+        # NOTE: we don't adjust any other ranks (so there will be non-sequential ranks where duplicates were dropped).
+        self.participant_data.sort_values(by=[ColNames.Category, ColNames.Response, ColNames.Participant, 'Rank'],
+                                          inplace=True)
+        self.participant_data.drop_duplicates(subset=[ColNames.Category, ColNames.Response, ColNames.Participant],
+                                              keep='first', inplace=True)
 
     def _process_collapsed_data(self):
         """Mutates self.data"""
