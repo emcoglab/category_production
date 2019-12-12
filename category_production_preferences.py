@@ -26,7 +26,3 @@ class Preferences(object):
 
     master_main_data_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_May 2019.csv")
     master_rt_data_csv_path = path.join(_experiment_dir, "1.4_RT data FULL_May 2019.csv")
-
-    # Cached versions
-    cached_data_csv_path = path.join(path.dirname(__file__), "cache.csv")
-    cache_version_path = path.join(path.dirname(__file__), 'cache.version')

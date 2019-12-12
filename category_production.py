@@ -16,12 +16,12 @@ caiwingfield.net
 ---------------------------
 """
 from logging import getLogger
-from os import path, remove
 from typing import List, Set
 
 from pandas import DataFrame, read_csv
 
-from category_production.exceptions import CategoryNotFoundError, ResponseNotFoundError
+from .utils import unique
+from .exceptions import CategoryNotFoundError, ResponseNotFoundError
 from .category_production_preferences import Preferences
 
 logger = getLogger(__name__)
@@ -98,8 +98,7 @@ class CategoryProduction(object):
 
     def __init__(self,
                  minimum_production_frequency: int = 2,
-                 word_tokenise: callable = None,
-                 use_cache: bool = False):
+                 word_tokenise: callable = None):
         """
         :param minimum_production_frequency:
             (Optional.)
@@ -111,16 +110,7 @@ class CategoryProduction(object):
             (Optional.)
             If provided and not None: A function which maps strings (strings) to lists of strings (token substrings).
             Default: s ↦ s.split(" ")
-        :param use_cache:
-            (Optional.)
-            Use a cached version of the data if available.  Use with caution in case the format of the underlying data
-            has changed after an update.
-            Default: False.
         """
-
-        if not self._saved_cache_version_valid():
-            logger.warning("Cache version invalid")
-            self._clear_saved_cache()
 
         # Validate arguments
         if minimum_production_frequency < 1:
@@ -136,15 +126,8 @@ class CategoryProduction(object):
 
         self.participants: List[int] = list(self.participant_data[ColNames.Participant].unique())
 
-        # Data collapsed over category/response pairs has additional computed columns, which we may want to cache
-        if (not use_cache) or (not CategoryProduction._could_load_cache()):
-            # If we can't use the cache, we produce it as normal
-            self.data: DataFrame = self.participant_data.copy()
-            self._process_collapsed_data()
-            self._save_cache()
-        else:
-            # If we can load from cache, we do
-            self.data = CategoryProduction._load_from_cache()
+        self.data: DataFrame = self.participant_data.copy()
+        self._process_collapsed_data()
 
         # Delete rows with minimum production frequency
         self.data = self.data[self.data[ColNames.ProductionFrequency] >= minimum_production_frequency]
@@ -172,7 +155,6 @@ class CategoryProduction(object):
 
     def _process_participant_data(self):
         """Mutates self.participant_data"""
-
         # A nan in the FRF column means the first-rank frequency is zero
         # Set FRF=NAN rows to FRF=0 and convert to int
         self.participant_data[ColNames.FirstRankFrequency] = self.participant_data[ColNames.FirstRankFrequency].fillna(0).astype(int)
@@ -182,6 +164,14 @@ class CategoryProduction(object):
         self.participant_data[ColNames.Category] = self.participant_data[ColNames.Category].str.lower()
         self.participant_data[ColNames.Response] = self.participant_data[ColNames.Response].str.strip()
         self.participant_data[ColNames.Response] = self.participant_data[ColNames.Response].str.lower()
+
+        # Sometimes participants give duplicate responses, and we only want the first one for each participant
+        # First sort the participant data so we can drop the correct duplicates.
+        # NOTE: we don't adjust any other ranks (so there will be non-sequential ranks where duplicates were dropped).
+        self.participant_data.sort_values(by=[ColNames.Category, ColNames.Response, ColNames.Participant, 'Rank'],
+                                          inplace=True)
+        self.participant_data.drop_duplicates(subset=[ColNames.Category, ColNames.Response, ColNames.Participant],
+                                              keep='first', inplace=True)
 
     def _process_collapsed_data(self):
         """Mutates self.data"""
@@ -244,64 +234,13 @@ class CategoryProduction(object):
             self.data[f"Participant {participant} response hit"] = self.data[f"Participant {participant} response hit"].fillna(False).astype(bool)
         self.data.reset_index(drop=True, inplace=True)
 
-    # region Cache
-
-    def _save_cache(self):
-        """Save current master data file."""
-        logger.info(f"Saving cached data file to {Preferences.cached_data_csv_path}")
-        with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
-            self.data.to_csv(cache_file, header=True, index=False)
-        with open(Preferences.cache_version_path, mode="w", encoding="utf-8") as cache_version:
-            cache_version.write(self._cache_version)
-
-    @property
-    def _cache_version(self) -> str:
-        """The version of the current cache."""
-        try:
-            from git import Repo
-            git_hash = Repo(search_parent_directories=True).head.object.hexsha
-        except ModuleNotFoundError:
-            try:
-                import subprocess
-                git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
-            except OSError:
-                git_hash = "Unknown"
-        return git_hash
-
-    @classmethod
-    def _load_from_cache(cls) -> DataFrame:
-        """Load cached master data file."""
-        logger.warning(f"Using cached data file from {Preferences.cached_data_csv_path}")
-        with open(Preferences.cached_data_csv_path, mode="r", encoding="utf-8") as cached_file:
-            return read_csv(cached_file, header=0, index_col=False)
-
-    @classmethod
-    def _could_load_cache(cls) -> bool:
-        """If the cached file could be loaded."""
-        return path.isfile(Preferences.cached_data_csv_path)
-
-    def _saved_cache_version_valid(self) -> bool:
-        try:
-            with open(Preferences.cache_version_path, mode="r", encoding="utf-8") as cache_file:
-                cache_version = cache_file.read()
-            return cache_version == self._cache_version
-        except FileNotFoundError:
-            return False
-
-    def _clear_saved_cache(self):
-        """Clear the current cached data file."""
-        if self._could_load_cache():
-            logger.warning(f"Clearing cached data [{Preferences.cached_data_csv_path}]")
-            remove(Preferences.cached_data_csv_path)
-            remove(Preferences.cache_version_path)
-
-    # endregion
-
     def responses_for_category(self,
                                category: str,
                                single_word_only: bool = False,
                                sort_by: 'ColNames' = None,
-                               use_sensorimotor: bool = False) -> List[str]:
+                               use_sensorimotor: bool = False,
+                               force_unique: bool = False,
+                               ) -> List[str]:
         """
         Responses for a provided category.
         :param category:
@@ -311,6 +250,15 @@ class CategoryProduction(object):
             Default: ColNames.MeanRank.
         :param use_sensorimotor:
             Give the sensorimotor-norms version of the response to the sensorimotor-norms version of the category.
+        :param force_unique:
+            If set to true, gives UNIQUE responses only.
+            Only applies when `use_sensorimotor` is True:
+            When returning sensorimotor equivalents, sometimes there will be collisions.
+                E.g.
+                winter sports -> downhill skiing [skiing]
+                winter sports -> skiing [skiing]
+            In this case if `force_unique` is False, there will be 2 skiing entries (to match with each of the unique
+            non-sensorimotor versions), and if True, there will be one (just "skiing").
         :return:
             List of responses.
         :raises CategoryNotFoundError: When requested category is not found in the norms
@@ -337,9 +285,14 @@ class CategoryProduction(object):
         ]
 
         if single_word_only:
-            return [r for r in filtered_data if " " not in r]
+            responses = [r for r in filtered_data if " " not in r]
         else:
-            return [r for r in filtered_data]
+            responses = [r for r in filtered_data]
+
+        if use_sensorimotor and force_unique:
+            responses = unique(responses)
+
+        return responses
 
     def data_for_category_response_pair(self,
                                         category: str,

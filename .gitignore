@@ -103,7 +103,3 @@ ENV/
 
 # MacOS
 .DS_Store
-
-# Cached data
-cache.csv
-cache.version
