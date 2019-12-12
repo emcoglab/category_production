@@ -16,7 +16,6 @@ caiwingfield.net
 ---------------------------
 """
 from logging import getLogger
-from os import path, remove
 from typing import List, Set
 
 from pandas import DataFrame, read_csv
@@ -99,8 +98,7 @@ class CategoryProduction(object):
 
     def __init__(self,
                  minimum_production_frequency: int = 2,
-                 word_tokenise: callable = None,
-                 use_cache: bool = False):
+                 word_tokenise: callable = None):
         """
         :param minimum_production_frequency:
             (Optional.)
@@ -112,16 +110,7 @@ class CategoryProduction(object):
             (Optional.)
             If provided and not None: A function which maps strings (strings) to lists of strings (token substrings).
             Default: s ↦ s.split(" ")
-        :param use_cache:
-            (Optional.)
-            Use a cached version of the data if available.  Use with caution in case the format of the underlying data
-            has changed after an update.
-            Default: False.
         """
-
-        if not self._saved_cache_version_valid():
-            logger.warning("Cache version invalid")
-            self._clear_saved_cache()
 
         # Validate arguments
         if minimum_production_frequency < 1:
@@ -137,15 +126,8 @@ class CategoryProduction(object):
 
         self.participants: List[int] = list(self.participant_data[ColNames.Participant].unique())
 
-        # Data collapsed over category/response pairs has additional computed columns, which we may want to cache
-        if (not use_cache) or (not CategoryProduction._could_load_cache()):
-            # If we can't use the cache, we produce it as normal
-            self.data: DataFrame = self.participant_data.copy()
-            self._process_collapsed_data()
-            self._save_cache()
-        else:
-            # If we can load from cache, we do
-            self.data = CategoryProduction._load_from_cache()
+        self.data: DataFrame = self.participant_data.copy()
+        self._process_collapsed_data()
 
         # Delete rows with minimum production frequency
         self.data = self.data[self.data[ColNames.ProductionFrequency] >= minimum_production_frequency]
@@ -251,59 +233,6 @@ class CategoryProduction(object):
             self.data = self.data.merge(this_ppt_data[[ColNames.Category, ColNames.Response, f"Participant {participant} response hit"]], how="left", on=[ColNames.Category, ColNames.Response])
             self.data[f"Participant {participant} response hit"] = self.data[f"Participant {participant} response hit"].fillna(False).astype(bool)
         self.data.reset_index(drop=True, inplace=True)
-
-    # region Cache
-
-    def _save_cache(self):
-        """Save current master data file."""
-        logger.info(f"Saving cached data file to {Preferences.cached_data_csv_path}")
-        with open(Preferences.cached_data_csv_path, mode="w", encoding="utf-8") as cache_file:
-            self.data.to_csv(cache_file, header=True, index=False)
-        with open(Preferences.cache_version_path, mode="w", encoding="utf-8") as cache_version:
-            cache_version.write(self._cache_version)
-
-    @property
-    def _cache_version(self) -> str:
-        """The version of the current cache."""
-        try:
-            from git import Repo
-            git_hash = Repo(search_parent_directories=True).head.object.hexsha
-        except ModuleNotFoundError:
-            try:
-                import subprocess
-                git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
-            except OSError:
-                git_hash = "Unknown"
-        return git_hash
-
-    @classmethod
-    def _load_from_cache(cls) -> DataFrame:
-        """Load cached master data file."""
-        logger.warning(f"Using cached data file from {Preferences.cached_data_csv_path}")
-        with open(Preferences.cached_data_csv_path, mode="r", encoding="utf-8") as cached_file:
-            return read_csv(cached_file, header=0, index_col=False)
-
-    @classmethod
-    def _could_load_cache(cls) -> bool:
-        """If the cached file could be loaded."""
-        return path.isfile(Preferences.cached_data_csv_path)
-
-    def _saved_cache_version_valid(self) -> bool:
-        try:
-            with open(Preferences.cache_version_path, mode="r", encoding="utf-8") as cache_file:
-                cache_version = cache_file.read()
-            return cache_version == self._cache_version
-        except FileNotFoundError:
-            return False
-
-    def _clear_saved_cache(self):
-        """Clear the current cached data file."""
-        if self._could_load_cache():
-            logger.warning(f"Clearing cached data [{Preferences.cached_data_csv_path}]")
-            remove(Preferences.cached_data_csv_path)
-            remove(Preferences.cache_version_path)
-
-    # endregion
 
     def responses_for_category(self,
                                category: str,
