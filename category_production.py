@@ -16,7 +16,7 @@ caiwingfield.net
 ---------------------------
 """
 from logging import getLogger
-from typing import List, Set
+from typing import List, Set, Dict
 
 from pandas import DataFrame, read_csv
 
@@ -138,6 +138,22 @@ class CategoryProduction(object):
         self.category_labels_sensorimotor: List[str] = sorted({category for category in self.data[ColNames.CategorySensorimotor]})
         self.response_labels: List[str]              = sorted({response for response in self.data[ColNames.Response]})
         self.response_labels_sensorimotor: List[str] = sorted({response for response in self.data[ColNames.ResponseSensorimotor]})
+
+        # Translation between original and sensorimotor equivalent terms
+        self.translate_linguistic2sensorimotor: Dict[str, str] = {
+            getattr(row, ColNames.Category): getattr(row, ColNames.CategorySensorimotor)
+            for row in self.data.itertuples()
+        }
+        # Add responses too.
+        # Verified that translations are compatible between categories and responses 2020-05-15.
+        self.translate_linguistic2sensorimotor.update({
+            getattr(row, ColNames.Response): getattr(row, ColNames.ResponseSensorimotor)
+            for row in self.data.itertuples()
+        })
+        self.translate_sensorimotor2linguistic: Dict[str, str] = {
+            v: k
+            for k, v in self.translate_linguistic2sensorimotor.items()
+        }
 
         # Build vocab lists
         # All multi-word tokens in the dataset
