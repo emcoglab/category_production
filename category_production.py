@@ -98,7 +98,8 @@ class CategoryProduction(object):
 
     def __init__(self,
                  minimum_production_frequency: int = 2,
-                 word_tokenise: callable = None):
+                 word_tokenise: callable = None,
+                 verbose: bool = False):
         """
         :param minimum_production_frequency:
             (Optional.)
@@ -111,6 +112,8 @@ class CategoryProduction(object):
             If provided and not None: A function which maps strings (strings) to lists of strings (token substrings).
             Default: s ↦ s.split(" ")
         """
+
+        self._verbose = verbose
 
         # Validate arguments
         if minimum_production_frequency < 1:
@@ -238,7 +241,8 @@ class CategoryProduction(object):
 
         # Add participant hitrate data
         for participant in self.participants:
-            logger.info(f"Adding participant {participant} hit info")
+            if self._verbose:
+                logger.info(f"Adding participant {participant} hit info")
             this_ppt_data = self.participant_data[self.participant_data[ColNames.Participant] == participant].copy()
             this_ppt_data[f"Participant {participant} saw category"] = True
             this_ppt_data[f"Participant {participant} response hit"] = True
