@@ -17,8 +17,8 @@ caiwingfield.net
 import unittest
 from hashlib import sha256
 
-from category_production import CategoryProduction
-from category_production_preferences import Preferences
+from .category_production import CategoryProduction
+from .category_production_preferences import Preferences
 
 
 class TestFileVersions(unittest.TestCase):
