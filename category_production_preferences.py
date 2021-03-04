@@ -22,7 +22,7 @@ class Preferences(object):
 
     # Root dirs
     _box_root = "/Users/caiwingfield/Box Sync/LANGBOOT Project/"
-    _experiment_dir = path.join(_box_root, "Experiments/Phase 1 - Categorisation/Experiment 1.4 - Category production/Data & Analysis/")
+    _experiment_dir = path.join(_box_root, "Experiments/Phase 1 - Categorisation/Experiment 1.4 - Category production/Data & Analysis/Errors and reanalysis March 2021/")
 
-    master_main_data_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_FINAL_Feb 2020.csv")
-    master_rt_data_csv_path = path.join(_experiment_dir, "1.4_RT data FULL_FINAL_Feb 2020.csv")
+    master_main_data_csv_path = path.join(_experiment_dir, "1.4_FULL data & variables_FINAL_Mar 2021.csv")
+    master_rt_data_csv_path = path.join(_experiment_dir, "1.4_RT data FULL_FINAL_Mar 2021.csv")
