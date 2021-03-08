@@ -57,7 +57,6 @@ class ColNames(object):
     # Extra predictor columns for RT data
     NSyll                = "NSyll"
     PLD                  = "PLD"
-    CategoryRT           = "Category.RT.secs"
 
     # Computed columns for RT data
 
@@ -169,7 +168,7 @@ class CategoryProduction(object):
 
     @classmethod
     def _load_participant_data_from_source(cls) -> DataFrame:
-        participant_data: DataFrame = read_csv(Preferences.master_main_data_csv_path, index_col=0, header=0)
+        participant_data: DataFrame = read_csv(Preferences.master_main_data_csv_path, index_col=None, header=0)
         return participant_data
 
     def _process_participant_data(self):
@@ -202,7 +201,7 @@ class CategoryProduction(object):
 
         # Get data from RT file
 
-        rt_data: DataFrame = read_csv(Preferences.master_rt_data_csv_path, index_col=0, header=0)
+        rt_data: DataFrame = read_csv(Preferences.master_rt_data_csv_path, index_col=None, header=0)
 
         # Add RT and zRT columns
         self.data = self.data.merge(
@@ -230,11 +229,6 @@ class CategoryProduction(object):
                 .reset_index(), how="left")
         self.data = self.data.merge(
             rt_data[[ColNames.Category, ColNames.Response, ColNames.PLD]]
-                .groupby([ColNames.Category, ColNames.Response])
-                .first()
-                .reset_index(), how="left")
-        self.data = self.data.merge(
-            rt_data[[ColNames.Category, ColNames.Response, ColNames.CategoryRT]]
                 .groupby([ColNames.Category, ColNames.Response])
                 .first()
                 .reset_index(), how="left")
